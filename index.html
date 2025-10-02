@@ -335,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
         runPredictionBtn.disabled = true; runPredictionBtnSpinner.classList.remove('hidden'); runPredictionBtnText.textContent = '예측 중...';
         setTimeout(() => {
             if (historicalData.length < 7) { alert('최소 7일 이상의 데이터가 필요합니다.'); runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행'; return; }
-            const today = new Date(); const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); const futureEvents = getFutureEvents(); const todayPrediction = predict(historicalData, today, futureEvents.today); const tomorrowPrediction = predict(historicalData, tomorrow, futureEvents.tomorrow);
+            const today = new Date(); const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); const futureEvents = getFutureEvents(); const todayPrediction = predict(historicalData, today, futureEvents.today); const tomorrowPrediction = predict(historicalData, tomorrow, futureEvents.tomorrow, todayPrediction);
             predictionLog[today.toISOString().split('T')[0]] = todayPrediction; predictionLog[tomorrow.toISOString().split('T')[0]] = tomorrowPrediction;
             displayPredictionResults(todayPrediction, tomorrowPrediction); displayModelAccuracy(); updateCalculators(todayPrediction, tomorrowPrediction); renderChart(historicalData, todayPrediction, tomorrowPrediction);
             runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행';
@@ -346,23 +346,56 @@ document.addEventListener('DOMContentLoaded', () => {
     function learnFromNewData(newDataArray) { newDataArray.forEach(actual => { const dateString = actual.date.toISOString().split('T')[0]; if (predictionLog[dateString]) { updateAdjustmentFactors(predictionLog[dateString], actual); delete predictionLog[dateString]; } }); }
     function updateAdjustmentFactors(prediction, actual) { const targetDay = actual.date.getDay(); if (prediction.orders === 0 || prediction.deliveries === 0) return; const orderRatio = actual.orders / prediction.orders; const deliveryRatio = actual.deliveries / prediction.deliveries; let oldOrderFactor = adjustmentFactors.dayOfWeek[targetDay].orders; let oldDeliveryFactor = adjustmentFactors.dayOfWeek[targetDay].deliveries; adjustmentFactors.dayOfWeek[targetDay].orders = oldOrderFactor * (1 - LEARNING_RATE) + orderRatio * LEARNING_RATE; adjustmentFactors.dayOfWeek[targetDay].deliveries = oldDeliveryFactor * (1 - LEARNING_RATE) + deliveryRatio * LEARNING_RATE; }
     
-    function predict(data, targetDate, futureEvents) {
+    function predict(data, targetDate, futureEvents, todayPrediction = null) {
         const targetDay = targetDate.getDay();
-        const relevantDaysData = data.filter(d => d.date.getDay() === targetDay);
-        const baseSource = (relevantDaysData.length > 0 ? relevantDaysData : data.slice(-7)).sort((a,b) => b.date - a.date);
 
-        let weightedOrderSum = 0, weightedDeliverySum = 0, totalWeight = 0;
-        baseSource.forEach((d, i) => { const weight = baseSource.length - i; weightedOrderSum += d.orders * weight; weightedDeliverySum += d.deliveries * weight; totalWeight += weight; });
-        let predictedOrders = totalWeight > 0 ? weightedOrderSum / totalWeight : 0;
-        let predictedDeliveries = totalWeight > 0 ? weightedDeliverySum / totalWeight : 0;
-
+        // 1. PREDICT ORDERS (Same logic as before)
+        const relevantOrderDaysData = data.filter(d => d.date.getDay() === targetDay);
+        const orderBaseSource = (relevantOrderDaysData.length > 0 ? relevantOrderDaysData : data.slice(-7)).sort((a,b) => b.date - a.date);
+        let weightedOrderSum = 0, orderTotalWeight = 0;
+        orderBaseSource.forEach((d, i) => { const weight = orderBaseSource.length - i; weightedOrderSum += d.orders * weight; orderTotalWeight += weight; });
+        let predictedOrders = orderTotalWeight > 0 ? weightedOrderSum / orderTotalWeight : 0;
         const multipliers = { promotion: calculateMultiplier(data, 'promotion'), holiday: calculateMultiplier(data, 'holiday'), warehousing: calculateMultiplier(data, 'warehousing') };
-        if (futureEvents.promotion) { predictedOrders *= multipliers.promotion.orders; predictedDeliveries *= multipliers.promotion.deliveries; }
-        if (futureEvents.holiday) { predictedOrders *= multipliers.holiday.orders; predictedDeliveries *= multipliers.holiday.deliveries; }
-        if (futureEvents.warehousing) { predictedOrders *= multipliers.warehousing.orders; predictedDeliveries *= multipliers.warehousing.deliveries; }
+        if (futureEvents.promotion) { predictedOrders *= multipliers.promotion.orders; }
+        if (futureEvents.holiday) { predictedOrders *= multipliers.holiday.orders; }
+        if (futureEvents.warehousing) { predictedOrders *= multipliers.warehousing.orders; }
         predictedOrders *= adjustmentFactors.dayOfWeek[targetDay].orders;
+
+        // 2. PREDICT DELIVERIES (New logic based on previous day's orders)
+        let previousDayOrders;
+        if (todayPrediction) { // Predicting for TOMORROW, use TODAY's predicted orders
+            previousDayOrders = todayPrediction.orders;
+        } else { // Predicting for TODAY, use YESTERDAY's actual orders
+            const yesterday = new Date(targetDate);
+            yesterday.setDate(targetDate.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+            const yesterdayData = data.find(d => d.date.toISOString().split('T')[0] === yesterdayStr);
+            previousDayOrders = yesterdayData ? yesterdayData.orders : data[0].orders; // Fallback to most recent
+        }
+        
+        const deliveryRatio = calculateDeliveryRatio(data);
+        let predictedDeliveries = previousDayOrders * deliveryRatio;
+        if (futureEvents.promotion) { predictedDeliveries *= multipliers.promotion.deliveries; }
+        if (futureEvents.holiday) { predictedDeliveries *= multipliers.holiday.deliveries; }
+        if (futureEvents.warehousing) { predictedDeliveries *= multipliers.warehousing.deliveries; }
         predictedDeliveries *= adjustmentFactors.dayOfWeek[targetDay].deliveries;
+
         return { date: targetDate, orders: Math.round(predictedOrders), deliveries: Math.round(predictedDeliveries) };
+    }
+
+    function calculateDeliveryRatio(data) {
+        let totalWeightedRatio = 0, totalWeight = 0;
+        for (let i = 0; i < data.length - 1; i++) {
+            const deliveryDayData = data[i];
+            const orderDayData = data[i + 1];
+            if (orderDayData.orders > 0) {
+                const ratio = deliveryDayData.deliveries / orderDayData.orders;
+                const weight = data.length - i;
+                totalWeightedRatio += ratio * weight;
+                totalWeight += weight;
+            }
+        }
+        return totalWeight > 0 ? totalWeightedRatio / totalWeight : 1;
     }
 
     function calculateMultiplier(data, eventType) { const eventDays = data.filter(d => d.events[eventType]); const nonEventDays = data.filter(d => !d.events[eventType]); if (eventDays.length < 2 || nonEventDays.length < 2) return { orders: 1, deliveries: 1 }; const avgEventOrders = eventDays.reduce((sum, d) => sum + d.orders, 0) / eventDays.length; const avgNonEventOrders = nonEventDays.reduce((sum, d) => sum + d.orders, 0) / nonEventDays.length; const avgEventDeliveries = eventDays.reduce((sum, d) => sum + d.deliveries, 0) / eventDays.length; const avgNonEventDeliveries = nonEventDays.reduce((sum, d) => sum + d.deliveries, 0) / nonEventDays.length; return { orders: avgNonEventOrders === 0 ? 1 : avgEventOrders / avgNonEventOrders, deliveries: avgNonEventDeliveries === 0 ? 1 : avgEventDeliveries / avgNonEventDeliveries }; }
