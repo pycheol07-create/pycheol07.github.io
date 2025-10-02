@@ -324,6 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveHistoricalData(); // Save after potentially adding new rows
         loadLastWorkloads();
         loadThroughputs();
+        loadHolidaySettings();
         renderThroughputSettings();
         initializeAdjustmentFactors();
         todayTabContent.innerHTML = generateCalculatorHTML('today');
@@ -499,6 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p class="text-xs">(기본 ${normalOrders}건 + 연휴 누적 ${Math.round(totalBacklogOrders)}건)</p>
             </div>
         `;
+        saveHolidaySettings();
     }
 
     // --- Learning & Prediction ---
@@ -614,6 +616,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     function saveHistoricalData() { localStorage.setItem('historicalData', JSON.stringify(historicalData)); }
+    function loadHolidaySettings() {
+        const saved = localStorage.getItem('holidaySettings');
+        if (saved) {
+            const settings = JSON.parse(saved);
+            holidayStartDateInput.value = settings.holidayStart || '';
+            holidayEndDateInput.value = settings.holidayEnd || '';
+            runHolidayPromotionCheckbox.checked = settings.promoChecked || false;
+            promoStartDateInput.value = settings.promoStart || '';
+            promoEndDateInput.value = settings.promoEnd || '';
+            promoIncreaseRateInput.value = settings.promoRate || '80';
+            backlogResultDiv.innerHTML = settings.resultHTML || '';
+
+            holidayPromotionSettingsDetails.classList.toggle('hidden', !runHolidayPromotionCheckbox.checked);
+            if(runHolidayPromotionCheckbox.checked) {
+                holidayPromotionSettingsDetails.open = true;
+            }
+        }
+    }
+    function saveHolidaySettings() {
+        const settings = {
+            holidayStart: holidayStartDateInput.value,
+            holidayEnd: holidayEndDateInput.value,
+            promoChecked: runHolidayPromotionCheckbox.checked,
+            promoStart: promoStartDateInput.value,
+            promoEnd: promoEndDateInput.value,
+            promoRate: promoIncreaseRateInput.value,
+            resultHTML: backlogResultDiv.innerHTML
+        };
+        localStorage.setItem('holidaySettings', JSON.stringify(settings));
+    }
 
 
     // --- Calculator & Throughput ---
