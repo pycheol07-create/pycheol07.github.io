@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수요 예측 및 업무 소요 시간 계산기</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: all 0.3s ease;
+        }
+        .btn { transition: all 0.2s ease; }
+        .btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .tab-button.active {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .modal-backdrop { transition: opacity 0.3s ease; }
+        .data-grid-header { position: sticky; top: 0; background-color: #f9fafb; z-index: 10; }
+        .event-checkbox { accent-color: #4f46e5; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] summary svg { transform: rotate(180deg); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">수요 예측 및 업무 소요 시간 계산기</h1>
+            <p class="mt-2 text-md text-gray-600">과거 데이터를 기반으로 미래 수요를 예측하고 효율적인 인력 운영 계획을 수립하세요.</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="grid grid-cols-1 gap-8">
+            <!-- Top Section: Chart -->
+            <div class="card p-6">
+                <h2 class="text-xl font-semibold mb-2">데이터 시각화</h2>
+                <div class="relative h-[300px]">
+                    <canvas id="predictionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Bottom Section: Controls & Calculator -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Left Column: Controls & Predictions -->
+                <div class="card p-6">
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">1. 분석 및 예측</h2>
+                    <div class="space-y-4">
+                        <button id="openDataModalBtn" class="w-full bg-gray-700 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 btn">
+                            과거 데이터 관리
+                        </button>
+                        <button id="runPredictionBtn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 btn flex items-center justify-center">
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="btn-text">예측 실행</span>
+                        </button>
+                    </div>
+                    
+                    <div id="futureEvents" class="mt-6 space-y-4">
+                        <h3 class="text-lg font-semibold border-t pt-4">미래 이벤트 설정</h3>
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <label class="font-medium text-sm text-gray-800">오늘 이벤트</label>
+                            <div class="flex items-center space-x-4 mt-2 text-sm" data-day="today">
+                                <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">프로모션</label>
+                                <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">휴일</label>
+                                <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">제작입고</label>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <label class="font-medium text-sm text-gray-800">내일 이벤트</label>
+                             <div class="flex items-center space-x-4 mt-2 text-sm" data-day="tomorrow">
+                                <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">프로모션</label>
+                                <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">휴일</label>
+                                <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">제작입고</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="predictionResult" class="mt-6">
+                        <!-- Prediction results will be injected here -->
+                    </div>
+                    <div id="modelAccuracy" class="mt-4">
+                        <!-- Model accuracy will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Right Column: Calculator -->
+                <div class="card p-6">
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">2. 예상 소요 시간 계산</h2>
+                    
+                    <div class="flex items-center space-x-2 mb-4">
+                        <button id="openPersonnelModalBtn" class="w-full bg-slate-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-slate-600 btn text-sm">
+                            인원 설정
+                        </button>
+                        <button id="openThroughputModalBtn" class="w-full bg-slate-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-slate-600 btn text-sm">
+                            처리량 설정
+                        </button>
+                    </div>
+
+                    <div class="flex border-b border-gray-200 mb-4">
+                        <button class="tab-button flex-1 py-2 px-4 text-center font-medium border-b-2 border-transparent text-gray-600 hover:bg-gray-100 active" data-tab="today">오늘</button>
+                        <button class="tab-button flex-1 py-2 px-4 text-center font-medium border-b-2 border-transparent text-gray-600 hover:bg-gray-100" data-tab="tomorrow">내일</button>
+                    </div>
+
+                    <div id="calculatorWrapper">
+                        <div id="today" class="tab-content active"><div class="space-y-6"></div></div>
+                        <div id="tomorrow" class="tab-content"><div class="space-y-6"></div></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Data Input Modal -->
+    <div id="dataModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 modal-backdrop flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl transform transition-all flex flex-col h-[90vh]" role="dialog">
+            <div class="p-5 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">과거 30일 데이터 관리</h3>
+                <button id="closeDataModalBtn" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="data-input-grid-container" class="p-5 overflow-y-auto flex-grow">
+                <!-- Dynamic grid will be inserted here -->
+            </div>
+            <div class="bg-gray-50 px-6 py-4 flex justify-end rounded-b-lg border-t">
+                <button id="applyDataBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 btn">
+                    데이터 적용 및 모델 학습
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Personnel Settings Modal -->
+    <div id="personnelModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 modal-backdrop flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-sm transform transition-all flex flex-col">
+            <div class="p-5 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">전체 인원 설정</h3>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-5">
+                <label for="globalPersonnel" class="block mb-2 text-sm font-medium text-gray-900">전체 투입인원 통합 설정</label>
+                <input type="number" id="globalPersonnel" value="1" min="1" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                <p class="text-xs text-gray-500 mt-1">전체 업무에 적용할 인원 수를 설정합니다.</p>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 flex justify-end rounded-b-lg border-t">
+                 <button id="applyPersonnelBtn" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 btn">
+                    적용
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Throughput Settings Modal -->
+    <div id="throughputModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 modal-backdrop flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-sm transform transition-all flex flex-col">
+            <div class="p-5 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">분당 처리량 설정</h3>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="throughputSettings" class="p-5">
+                <!-- Throughput settings will be injected here -->
+            </div>
+            <div class="bg-gray-50 px-6 py-4 flex justify-between items-center rounded-b-lg border-t">
+                 <button id="saveRatesBtn" class="bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 btn text-sm">설정 저장</button>
+                 <button class="close-modal-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 btn text-sm">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // DOM Elements
+    const predictionResultDiv = document.getElementById('predictionResult');
+    const modelAccuracyDiv = document.getElementById('modelAccuracy');
+    const todayTabContent = document.querySelector('#today .space-y-6');
+    const tomorrowTabContent = document.querySelector('#tomorrow .space-y-6');
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const ctx = document.getElementById('predictionChart').getContext('2d');
+    const openDataModalBtn = document.getElementById('openDataModalBtn');
+    const closeDataModalBtn = document.getElementById('closeDataModalBtn');
+    const dataModal = document.getElementById('dataModal');
+    const applyDataBtn = document.getElementById('applyDataBtn');
+    const runPredictionBtn = document.getElementById('runPredictionBtn');
+    const runPredictionBtnSpinner = runPredictionBtn.querySelector('svg');
+    const runPredictionBtnText = runPredictionBtn.querySelector('.btn-text');
+    const openPersonnelModalBtn = document.getElementById('openPersonnelModalBtn');
+    const openThroughputModalBtn = document.getElementById('openThroughputModalBtn');
+    const personnelModal = document.getElementById('personnelModal');
+    const throughputModal = document.getElementById('throughputModal');
+    const saveRatesBtn = throughputModal.querySelector('#saveRatesBtn');
+    const globalPersonnelInput = document.getElementById('globalPersonnel');
+    const applyPersonnelBtn = document.getElementById('applyPersonnelBtn');
+
+    let predictionChart;
+    let historicalData = [];
+    let predictionLog = {};
+    let adjustmentFactors = {};
+    let taskThroughputs = {};
+    const LEARNING_RATE = 0.1;
+
+    const defaultHistoricalData = [
+        { date: "2025-10-01", orders: 997, deliveries: 1056, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-30", orders: 1047, deliveries: 1042, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-29", orders: 1029, deliveries: 1366, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-28", orders: 960, deliveries: 657, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-27", orders: 652, deliveries: 483, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-26", orders: 725, deliveries: 870, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-25", orders: 931, deliveries: 948, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-24", orders: 1108, deliveries: 1230, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-23", orders: 1219, deliveries: 1359, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-22", orders: 1218, deliveries: 1263, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-21", orders: 1085, deliveries: 708, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-20", orders: 704, deliveries: 519, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-19", orders: 818, deliveries: 921, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-18", orders: 906, deliveries: 890, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-17", orders: 932, deliveries: 1076, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-16", orders: 1046, deliveries: 1007, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-15", orders: 940, deliveries: 995, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-14", orders: 824, deliveries: 548, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-13", orders: 554, deliveries: 371, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-12", orders: 559, deliveries: 707, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-11", orders: 805, deliveries: 925, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-10", orders: 867, deliveries: 850, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-09", orders: 963, deliveries: 861, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-08", orders: 813, deliveries: 900, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-07", orders: 708, deliveries: 507, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-06", orders: 515, deliveries: 408, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-05", orders: 569, deliveries: 582, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-04", orders: 653, deliveries: 722, events: { promotion: false, holiday: false, warehousing: true } },
+        { date: "2025-09-03", orders: 777, deliveries: 819, events: { promotion: false, holiday: false, warehousing: false } }
+    ];
+
+    // --- Initial Setup ---
+    function initialize() {
+        historicalData = defaultHistoricalData.map(d => ({...d, date: new Date(d.date)}));
+        addNewDateRows();
+        loadThroughputs();
+        renderThroughputSettings();
+        initializeAdjustmentFactors();
+        todayTabContent.innerHTML = generateCalculatorHTML('today');
+        tomorrowTabContent.innerHTML = generateCalculatorHTML('tomorrow');
+        handleAnalysis();
+    }
+    
+    function addNewDateRows() {
+        if (!historicalData || historicalData.length === 0) return;
+        const today = new Date();
+        const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        let lastDate = new Date(historicalData[0].date);
+        while (lastDate < todayDateOnly) {
+            lastDate.setDate(lastDate.getDate() + 1);
+            historicalData.unshift({ date: new Date(lastDate), orders: 0, deliveries: 0, events: { promotion: false, holiday: false, warehousing: false } });
+        }
+        historicalData = historicalData.slice(0, 30);
+    }
+    
+    function initializeAdjustmentFactors() {
+        adjustmentFactors.dayOfWeek = Array(7).fill(null).map(() => ({ orders: 1.0, deliveries: 1.0 }));
+    }
+
+    // --- Event Listeners ---
+    openDataModalBtn.addEventListener('click', () => { renderDataModal(historicalData); dataModal.classList.remove('hidden'); });
+    closeDataModalBtn.addEventListener('click', () => dataModal.classList.add('hidden'));
+    dataModal.addEventListener('click', (e) => e.target === dataModal && dataModal.classList.add('hidden'));
+    applyDataBtn.addEventListener('click', () => { const newDataArray = readDataFromModal(); learnFromNewData(newDataArray); historicalData = newDataArray; handleAnalysis(); dataModal.classList.add('hidden'); });
+    runPredictionBtn.addEventListener('click', handleAnalysis);
+    document.querySelectorAll('.future-event-cb').forEach(cb => cb.addEventListener('change', handleAnalysis));
+    tabButtons.forEach(button => { button.addEventListener('click', () => { tabButtons.forEach(btn => btn.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active')); button.classList.add('active'); document.getElementById(button.dataset.tab).classList.add('active'); }); });
+    document.getElementById('calculatorWrapper').addEventListener('input', (e) => { if (e.target.classList.contains('calculator-input')) { const card = e.target.closest('.calculator-card'); if (card) calculateAndDisplayTime(card); } });
+    
+    // Modal Listeners
+    openPersonnelModalBtn.addEventListener('click', () => personnelModal.classList.remove('hidden'));
+    openThroughputModalBtn.addEventListener('click', () => throughputModal.classList.remove('hidden'));
+    personnelModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => personnelModal.classList.add('hidden')));
+    throughputModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => throughputModal.classList.add('hidden')));
+    personnelModal.addEventListener('click', (e) => e.target === personnelModal && personnelModal.classList.add('hidden'));
+    throughputModal.addEventListener('click', (e) => e.target === throughputModal && throughputModal.classList.add('hidden'));
+    
+    applyPersonnelBtn.addEventListener('click', () => {
+        const personnelCount = globalPersonnelInput.value;
+        if (personnelCount >= 1) {
+            document.querySelectorAll('.calculator-card .personnel').forEach(input => {
+                input.value = personnelCount;
+            });
+            recalculateAllCards();
+        }
+        personnelModal.classList.add('hidden');
+    });
+    
+    globalPersonnelInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyPersonnelBtn.click();
+        }
+    });
+
+    saveRatesBtn.addEventListener('click', () => {
+        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진(피킹)' }, { id: 'warehousing', name: '제작입고' } ];
+        tasks.forEach(task => {
+            taskThroughputs[task.id] = parseFloat(document.getElementById(`rate-${task.id}`).value) || 0;
+        });
+        saveThroughputs();
+        alert('처리량 설정이 저장되었습니다.');
+        recalculateAllCards();
+        throughputModal.classList.add('hidden');
+    });
+
+    // --- Core Functions ---
+    function handleAnalysis() {
+        runPredictionBtn.disabled = true; runPredictionBtnSpinner.classList.remove('hidden'); runPredictionBtnText.textContent = '예측 중...';
+        setTimeout(() => {
+            if (historicalData.length < 7) { alert('최소 7일 이상의 데이터가 필요합니다.'); runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행'; return; }
+            const today = new Date(); const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); const futureEvents = getFutureEvents(); const todayPrediction = predict(historicalData, today, futureEvents.today); const tomorrowPrediction = predict(historicalData, tomorrow, futureEvents.tomorrow);
+            predictionLog[today.toISOString().split('T')[0]] = todayPrediction; predictionLog[tomorrow.toISOString().split('T')[0]] = tomorrowPrediction;
+            displayPredictionResults(todayPrediction, tomorrowPrediction); displayModelAccuracy(); updateCalculators(todayPrediction, tomorrowPrediction); renderChart(historicalData, todayPrediction, tomorrowPrediction);
+            runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행';
+        }, 500);
+    }
+    
+    // --- Learning & Prediction ---
+    function learnFromNewData(newDataArray) { newDataArray.forEach(actual => { const dateString = actual.date.toISOString().split('T')[0]; if (predictionLog[dateString]) { updateAdjustmentFactors(predictionLog[dateString], actual); delete predictionLog[dateString]; } }); }
+    function updateAdjustmentFactors(prediction, actual) { const targetDay = actual.date.getDay(); if (prediction.orders === 0 || prediction.deliveries === 0) return; const orderRatio = actual.orders / prediction.orders; const deliveryRatio = actual.deliveries / prediction.deliveries; let oldOrderFactor = adjustmentFactors.dayOfWeek[targetDay].orders; let oldDeliveryFactor = adjustmentFactors.dayOfWeek[targetDay].deliveries; adjustmentFactors.dayOfWeek[targetDay].orders = oldOrderFactor * (1 - LEARNING_RATE) + orderRatio * LEARNING_RATE; adjustmentFactors.dayOfWeek[targetDay].deliveries = oldDeliveryFactor * (1 - LEARNING_RATE) + deliveryRatio * LEARNING_RATE; }
+    
+    function predict(data, targetDate, futureEvents) {
+        const targetDay = targetDate.getDay();
+        const relevantDaysData = data.filter(d => d.date.getDay() === targetDay);
+        const baseSource = (relevantDaysData.length > 0 ? relevantDaysData : data.slice(-7)).sort((a,b) => b.date - a.date);
+
+        let weightedOrderSum = 0, weightedDeliverySum = 0, totalWeight = 0;
+        baseSource.forEach((d, i) => { const weight = baseSource.length - i; weightedOrderSum += d.orders * weight; weightedDeliverySum += d.deliveries * weight; totalWeight += weight; });
+        let predictedOrders = totalWeight > 0 ? weightedOrderSum / totalWeight : 0;
+        let predictedDeliveries = totalWeight > 0 ? weightedDeliverySum / totalWeight : 0;
+
+        const multipliers = { promotion: calculateMultiplier(data, 'promotion'), holiday: calculateMultiplier(data, 'holiday'), warehousing: calculateMultiplier(data, 'warehousing') };
+        if (futureEvents.promotion) { predictedOrders *= multipliers.promotion.orders; predictedDeliveries *= multipliers.promotion.deliveries; }
+        if (futureEvents.holiday) { predictedOrders *= multipliers.holiday.orders; predictedDeliveries *= multipliers.holiday.deliveries; }
+        if (futureEvents.warehousing) { predictedOrders *= multipliers.warehousing.orders; predictedDeliveries *= multipliers.warehousing.deliveries; }
+        predictedOrders *= adjustmentFactors.dayOfWeek[targetDay].orders;
+        predictedDeliveries *= adjustmentFactors.dayOfWeek[targetDay].deliveries;
+        return { date: targetDate, orders: Math.round(predictedOrders), deliveries: Math.round(predictedDeliveries) };
+    }
+
+    function calculateMultiplier(data, eventType) { const eventDays = data.filter(d => d.events[eventType]); const nonEventDays = data.filter(d => !d.events[eventType]); if (eventDays.length < 2 || nonEventDays.length < 2) return { orders: 1, deliveries: 1 }; const avgEventOrders = eventDays.reduce((sum, d) => sum + d.orders, 0) / eventDays.length; const avgNonEventOrders = nonEventDays.reduce((sum, d) => sum + d.orders, 0) / nonEventDays.length; const avgEventDeliveries = eventDays.reduce((sum, d) => sum + d.deliveries, 0) / eventDays.length; const avgNonEventDeliveries = nonEventDays.reduce((sum, d) => sum + d.deliveries, 0) / nonEventDays.length; return { orders: avgNonEventOrders === 0 ? 1 : avgEventOrders / avgNonEventOrders, deliveries: avgNonEventDeliveries === 0 ? 1 : avgEventDeliveries / avgNonEventDeliveries }; }
+
+    // --- UI Update Functions ---
+    function displayPredictionResults(today, tomorrow) { predictionResultDiv.innerHTML = `<h3 class="text-lg font-semibold border-t pt-4 mb-3">예측 결과</h3><div class="space-y-2 text-sm"><div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-medium">오늘 (${today.date.toLocaleDateString()}) 예상:</span><span class="font-bold text-indigo-600">주문 ${today.orders} / 배송 ${today.deliveries}</span></div><div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-medium">내일 (${tomorrow.date.toLocaleDateString()}) 예상:</span><span class="font-bold text-indigo-600">주문 ${tomorrow.orders} / 배송 ${tomorrow.deliveries}</span></div></div>`; }
+    function displayModelAccuracy() { let totalDeviation = 0; adjustmentFactors.dayOfWeek.forEach(factor => { totalDeviation += Math.abs(factor.orders - 1); totalDeviation += Math.abs(factor.deliveries - 1); }); const accuracy = 100 * (1 - (totalDeviation / (adjustmentFactors.dayOfWeek.length * 2))); modelAccuracyDiv.innerHTML = `<div class="text-sm p-3 bg-indigo-50 text-indigo-800 rounded-lg flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg><span>현재 모델 정확도: <strong class="font-bold">${accuracy.toFixed(1)}%</strong></span></div>`; }
+    function renderChart(historicalData, todayPrediction, tomorrowPrediction) { const labels = historicalData.map(d => d.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })).reverse(); const historicalOrders = historicalData.map(d => d.orders).reverse(); const historicalDeliveries = historicalData.map(d => d.deliveries).reverse(); const allLabels = [...labels, todayPrediction.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }), tomorrowPrediction.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })]; const predictionOrderData = Array(historicalData.length).fill(null).concat([todayPrediction.orders, tomorrowPrediction.orders]); const predictionDeliveryData = Array(historicalData.length).fill(null).concat([todayPrediction.deliveries, tomorrowPrediction.deliveries]); if (predictionChart) predictionChart.destroy(); predictionChart = new Chart(ctx, { type: 'line', data: { labels: allLabels, datasets: [ { label: '과거 주문량', data: historicalOrders, borderColor: 'rgba(59, 130, 246, 0.6)', tension: 0.1 }, { label: '과거 배송량', data: historicalDeliveries, borderColor: 'rgba(16, 185, 129, 0.6)', tension: 0.1 }, { label: '예측 주문량', data: predictionOrderData, borderColor: 'rgba(59, 130, 246, 1)', borderDash: [5, 5], pointRadius: 5 }, { label: '예측 배송량', data: predictionDeliveryData, borderColor: 'rgba(16, 185, 129, 1)', borderDash: [5, 5], pointRadius: 5 } ] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } }, plugins: { legend: { position: 'top' } } } }); }
+    
+    // --- Time Formatting Helper ---
+    function formatHoursToHM(decimalHours) { if (isNaN(decimalHours) || decimalHours < 0) { return '0시간 0분'; } const totalMinutes = Math.round(decimalHours * 60); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${hours}시간 ${minutes}분`; }
+
+    // --- Calculator & Throughput ---
+    function loadThroughputs() { const saved = localStorage.getItem('taskThroughputs'); taskThroughputs = saved ? JSON.parse(saved) : { delivery: 5, forwarding: 5, warehousing: 5 }; }
+    function saveThroughputs() { localStorage.setItem('taskThroughputs', JSON.stringify(taskThroughputs)); }
+    function renderThroughputSettings() {
+        const container = document.getElementById('throughputSettings');
+        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진(피킹)' }, { id: 'warehousing', name: '제작입고' } ];
+        let inputsHTML = tasks.map(task => `<div><label class="block mb-1 text-gray-600 text-sm">${task.name}</label><input type="number" id="rate-${task.id}" class="w-full p-2 border rounded-md" value="${taskThroughputs[task.id]}"></div>`).join('');
+        container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">${inputsHTML}</div>`;
+        tasks.forEach(task => {
+            document.getElementById(`rate-${task.id}`).addEventListener('keydown', e => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveRatesBtn.click();
+                }
+            });
+        });
+    }
+    function recalculateAllCards() { document.querySelectorAll('.calculator-card').forEach(calculateAndDisplayTime); }
+    
+    function updateCalculators(todayPrediction, tomorrowPrediction) {
+        updateCardWorkload('today', 'delivery', todayPrediction.deliveries);
+        updateCardWorkload('today', 'forwarding', todayPrediction.deliveries);
+        updateCardWorkload('today', 'warehousing', todayPrediction.orders);
+        updateCardWorkload('tomorrow', 'delivery', tomorrowPrediction.deliveries);
+        updateCardWorkload('tomorrow', 'forwarding', tomorrowPrediction.deliveries);
+        updateCardWorkload('tomorrow', 'warehousing', tomorrowPrediction.orders);
+    }
+
+    function updateCardWorkload(dayId, taskType, workload) { const card = document.querySelector(`#${dayId} .calculator-card[data-task-type="${taskType}"]`); if (card) { card.querySelector('.workload').value = workload; calculateAndDisplayTime(card); } }
+    function calculateAndDisplayTime(card) { const taskType = card.dataset.taskType; const rate = taskThroughputs[taskType] || 0; const workload = parseFloat(card.querySelector('.workload').value); const personnel = parseInt(card.querySelector('.personnel').value, 10); const resultEl = card.querySelector('.result-time'); let totalHours = 0; if (rate > 0 && workload > 0 && personnel > 0) { totalHours = (workload / (rate * personnel) / 60); } resultEl.dataset.hours = totalHours.toFixed(4); resultEl.textContent = formatHoursToHM(totalHours); updateWorkSummary(card.closest('.tab-content').id); }
+    function updateWorkSummary(dayId) { const container = document.getElementById(dayId); const summaryEl = container.querySelector('.summary-container'); let totalHours = 0; container.querySelectorAll('.result-time').forEach(el => { totalHours += parseFloat(el.dataset.hours) || 0; }); const difference = totalHours - 8; let summaryHTML = `<p class="text-lg font-bold">총 예상 소요 시간: <span class="text-blue-600">${formatHoursToHM(totalHours)}</span></p>`; if (difference > 0) { summaryHTML += `<p class="text-sm font-medium text-red-600">기준 시간(8시간) 대비 ${formatHoursToHM(difference)} 초과</p>`; } else { summaryHTML += `<p class="text-sm font-medium text-green-600">기준 시간(8시간)까지 ${formatHoursToHM(Math.abs(difference))} 여유</p>`; } summaryEl.innerHTML = summaryHTML; }
+    function generateCalculatorHTML() {
+        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진(피킹)' }, { id: 'warehousing', name: '제작입고' } ];
+        const cardsHTML = tasks.map(task => `
+            <div class="calculator-card border border-gray-200 p-4 rounded-lg" data-task-type="${task.id}">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-semibold text-md">${task.name}</h4>
+                    <div class="text-right"> <p class="text-sm text-gray-500">예상 소요 시간</p> <p class="result-time text-lg font-bold text-blue-600" data-hours="0">0시간 0분</p> </div>
+                </div>
+                <div class="flex items-center justify-between text-sm space-x-4">
+                    <div class="flex-grow"><label class="block mb-1 text-gray-600">업무량(건)</label><input type="number" class="calculator-input workload w-full p-2 border rounded-md" value="0"></div>
+                    <div class="w-24"><label class="block mb-1 text-gray-600">투입인원</label><input type="number" class="calculator-input personnel w-full p-2 border rounded-md" value="1" min="1"></div>
+                </div>
+            </div>`).join('');
+        return cardsHTML + `<div class="summary-container mt-6 p-4 bg-gray-100 rounded-lg text-center"></div>`;
+    }
+    
+    // --- Modal Data Handling ---
+    function renderDataModal(data) { const container = document.getElementById('data-input-grid-container'); const dayNames = ['일', '월', '화', '수', '목', '금', '토']; let gridHTML = `<div class="grid grid-cols-6 gap-x-4 gap-y-2 text-sm text-center font-semibold data-grid-header py-2 border-b"> <div>날짜</div> <div>주문량</div> <div>배송량</div> <div>프로모션</div> <div>휴일</div> <div>제작입고</div> </div>`; data.forEach(d => { const date = d.date; const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; const dayName = dayNames[date.getDay()]; gridHTML += `<div class="grid grid-cols-6 gap-x-4 items-center py-2 border-b border-gray-100" data-date="${dateString}"><div class="text-center text-xs">${dateString} (${dayName})</div><div><input type="number" value="${d.orders}" class="w-full p-1.5 border rounded-md text-center"></div> <div><input type="number" value="${d.deliveries}" class="w-full p-1.5 border rounded-md text-center"></div><div class="text-center"><input type="checkbox" ${d.events.promotion ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.holiday ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.warehousing ? 'checked' : ''} class="event-checkbox h-5 w-5"></div></div>`; }); container.innerHTML = gridHTML; }
+    function readDataFromModal() { const rows = document.querySelectorAll('#data-input-grid-container > div[data-date]'); return Array.from(rows).map(row => { const inputs = row.querySelectorAll('input'); return { date: new Date(row.dataset.date), orders: parseInt(inputs[0].value, 10) || 0, deliveries: parseInt(inputs[1].value, 10) || 0, events: { promotion: inputs[2].checked, holiday: inputs[3].checked, warehousing: inputs[4].checked, } }; }).sort((a, b) => b.date - a.date); }
+    function getFutureEvents() { const getEvents = (container) => { const cbs = container.querySelectorAll('input[type="checkbox"]'); return { promotion: cbs[0].checked, holiday: cbs[1].checked, warehousing: cbs[2].checked }; }; return { today: getEvents(document.querySelector('#futureEvents div[data-day="today"]')), tomorrow: getEvents(document.querySelector('#futureEvents div[data-day="tomorrow"]')) }; }
+
+    // --- Auto-run on page load ---
+    initialize();
+});
+</script>
+
+</body>
+</html>
+
