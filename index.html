@@ -193,8 +193,17 @@
     <div id="dataModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 modal-backdrop flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl transform transition-all flex flex-col h-[90vh]" role="dialog">
             <div class="p-5 border-b flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-gray-900">과거 30일 데이터 관리</h3>
+                <h3 class="text-lg font-semibold text-gray-900">과거 데이터 관리</h3>
                 <button id="closeDataModalBtn" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-5 border-b flex flex-wrap items-center gap-2">
+                <input type="month" id="dataFilterMonth" class="p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                <button id="filterDataBtn" class="bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 btn text-sm">조회</button>
+                <button id="resetFilterBtn" class="bg-gray-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-gray-600 btn text-sm">최신</button>
+                <div class="flex-grow"></div>
+                <button id="openAiAnalysisBtn" class="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-2 px-4 rounded-lg hover:from-green-600 hover:to-emerald-700 btn text-sm">
+                    ✨ AI 데이터 심층 분석
+                </button>
             </div>
             <div id="data-input-grid-container" class="p-5 overflow-y-auto flex-grow">
                 <!-- Dynamic grid will be inserted here -->
@@ -250,7 +259,7 @@
     <div id="aiReportModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 modal-backdrop flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl transform transition-all flex flex-col h-[90vh]">
             <div class="p-5 border-b flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-gray-900">✨ AI 업무 계획 보고서</h3>
+                <h3 class="text-lg font-semibold text-gray-900">✨ AI 업무 계획서</h3>
                 <button class="close-modal-btn text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
             </div>
             <div id="aiReportContent" class="p-6 overflow-y-auto flex-grow prose">
@@ -264,6 +273,23 @@
         </div>
     </div>
 
+    <!-- Gemini AI Analysis Modal -->
+    <div id="aiAnalysisModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 modal-backdrop flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl transform transition-all flex flex-col h-[90vh]">
+            <div class="p-5 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">✨ AI 데이터 심층 분석</h3>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="aiAnalysisContent" class="p-6 overflow-y-auto flex-grow prose">
+                <!-- AI Analysis will be injected here -->
+            </div>
+            <div class="bg-gray-50 px-6 py-4 flex justify-end rounded-b-lg border-t">
+                <button class="close-modal-btn bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300 btn">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -291,6 +317,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiReportModal = document.getElementById('aiReportModal');
     const aiReportContent = document.getElementById('aiReportContent');
     
+    // Data Modal Filter
+    const dataFilterMonth = document.getElementById('dataFilterMonth');
+    const filterDataBtn = document.getElementById('filterDataBtn');
+    const resetFilterBtn = document.getElementById('resetFilterBtn');
+    const openAiAnalysisBtn = document.getElementById('openAiAnalysisBtn');
+    const aiAnalysisModal = document.getElementById('aiAnalysisModal');
+    const aiAnalysisContent = document.getElementById('aiAnalysisContent');
+
     // Holiday Backlog Elements
     const predictBacklogBtn = document.getElementById('predictBacklogBtn');
     const holidayStartDateInput = document.getElementById('holidayStartDate');
@@ -308,7 +342,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let predictionLog = {};
     let adjustmentFactors = {};
     let taskThroughputs = {};
-    let lastWorkloads = {};
     const LEARNING_RATE = 0.1;
 
     const defaultHistoricalData = [
@@ -347,8 +380,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function initialize() {
         loadHistoricalData();
         addNewDateRows();
-        saveHistoricalData(); // Save after potentially adding new rows
-        loadLastWorkloads();
         loadThroughputs();
         loadHolidaySettings();
         renderThroughputSettings();
@@ -367,7 +398,6 @@ document.addEventListener('DOMContentLoaded', () => {
             lastDate.setDate(lastDate.getDate() + 1);
             historicalData.unshift({ date: new Date(lastDate), orders: 0, deliveries: 0, events: { promotion: false, holiday: false, warehousing: false } });
         }
-        historicalData = historicalData.slice(0, 30);
     }
     
     function initializeAdjustmentFactors() {
@@ -375,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Event Listeners ---
-    openDataModalBtn.addEventListener('click', () => { renderDataModal(historicalData); dataModal.classList.remove('hidden'); });
+    openDataModalBtn.addEventListener('click', () => { renderDataModal(); dataModal.classList.remove('hidden'); });
     closeDataModalBtn.addEventListener('click', () => dataModal.classList.add('hidden'));
     dataModal.addEventListener('click', (e) => e.target === dataModal && dataModal.classList.add('hidden'));
     applyDataBtn.addEventListener('click', () => { const newDataArray = readDataFromModal(); learnFromNewData(newDataArray); historicalData = newDataArray; saveHistoricalData(); handleAnalysis(); dataModal.classList.add('hidden'); });
@@ -410,9 +440,12 @@ document.addEventListener('DOMContentLoaded', () => {
     personnelModal.querySelectorAll('.close-modal-btn, #applyPersonnelBtn').forEach(btn => btn.addEventListener('click', () => personnelModal.classList.add('hidden')));
     throughputModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => throughputModal.classList.add('hidden')));
     aiReportModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => aiReportModal.classList.add('hidden')));
+    aiAnalysisModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => aiAnalysisModal.classList.add('hidden')));
     personnelModal.addEventListener('click', (e) => e.target === personnelModal && personnelModal.classList.add('hidden'));
     throughputModal.addEventListener('click', (e) => e.target === throughputModal && throughputModal.classList.add('hidden'));
     aiReportModal.addEventListener('click', (e) => e.target === aiReportModal && aiReportModal.classList.add('hidden'));
+    aiAnalysisModal.addEventListener('click', (e) => e.target === aiAnalysisModal && aiAnalysisModal.classList.add('hidden'));
+
     
     applyPersonnelBtn.addEventListener('click', () => {
         const personnelCount = globalPersonnelInput.value;
@@ -441,6 +474,22 @@ document.addEventListener('DOMContentLoaded', () => {
         recalculateAllCards();
         throughputModal.classList.add('hidden');
     });
+
+    // Data Modal Filter Listeners
+    filterDataBtn.addEventListener('click', () => {
+        const [year, month] = dataFilterMonth.value.split('-');
+        if (year && month) {
+            const filteredData = historicalData.filter(d => {
+                return d.date.getFullYear() === parseInt(year) && (d.date.getMonth() + 1) === parseInt(month);
+            });
+            renderDataModal(filteredData);
+        }
+    });
+    resetFilterBtn.addEventListener('click', () => {
+        renderDataModal();
+    });
+    openAiAnalysisBtn.addEventListener('click', generateAdvancedAnalysis);
+
 
     // Holiday Backlog Listeners
     predictBacklogBtn.addEventListener('click', () => {
@@ -644,14 +693,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayModelAccuracy() { let totalDeviation = 0; adjustmentFactors.dayOfWeek.forEach(factor => { totalDeviation += Math.abs(factor.orders - 1); totalDeviation += Math.abs(factor.deliveries - 1); }); const accuracy = 100 * (1 - (totalDeviation / (adjustmentFactors.dayOfWeek.length * 2))); modelAccuracyDiv.innerHTML = `<div class="text-sm p-3 bg-indigo-50 text-indigo-800 rounded-lg flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg><span>현재 모델 정확도: <strong class="font-bold">${accuracy.toFixed(1)}%</strong></span></div>`; }
     
     function renderChart(historicalData, todayPrediction, tomorrowPrediction) {
-        const reversedData = [...historicalData].reverse();
+        const reversedData = [...historicalData].slice(0, 30).reverse();
         const labels = reversedData.map(d => d.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }));
         const historicalOrders = reversedData.map(d => d.orders);
         const historicalDeliveries = reversedData.map(d => d.deliveries);
         
         const allLabels = [...labels, todayPrediction.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }), tomorrowPrediction.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })];
-        const predictionOrderData = Array(historicalData.length).fill(null).concat([todayPrediction.orders, tomorrowPrediction.orders]);
-        const predictionDeliveryData = Array(historicalData.length).fill(null).concat([todayPrediction.deliveries, tomorrowPrediction.deliveries]);
+        const predictionOrderData = Array(labels.length).fill(null).concat([todayPrediction.orders, tomorrowPrediction.orders]);
+        const predictionDeliveryData = Array(labels.length).fill(null).concat([todayPrediction.deliveries, tomorrowPrediction.deliveries]);
         
         const promoAnnotationsData = reversedData.map(d => d.events.promotion ? d.orders : null);
         const warehousingAnnotationsData = reversedData.map(d => d.events.warehousing ? d.orders : null);
@@ -679,8 +728,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatHoursToHM(decimalHours) { if (isNaN(decimalHours) || decimalHours < 0) { return '0시간 0분'; } const totalMinutes = Math.round(decimalHours * 60); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${hours}시간 ${minutes}분`; }
 
     // --- Data Persistence ---
-    function loadLastWorkloads() { const saved = localStorage.getItem('lastWorkloads'); lastWorkloads = saved ? JSON.parse(saved) : {}; }
-    function saveLastWorkload(taskType, value) { lastWorkloads[taskType] = value; localStorage.setItem('lastWorkloads', JSON.stringify(lastWorkloads)); }
     function loadThroughputs() { const saved = localStorage.getItem('taskThroughputs'); taskThroughputs = saved ? JSON.parse(saved) : { delivery: 5, forwarding: 5, warehousing: 5 }; }
     function saveThroughputs() { localStorage.setItem('taskThroughputs', JSON.stringify(taskThroughputs)); }
     function loadHistoricalData() {
@@ -750,22 +797,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function updateCalculators(todayPrediction, tomorrowPrediction) {
         updateCardWorkload('today', 'delivery', todayPrediction.deliveries);
-        updateCardWorkload('today', 'forwarding', todayPrediction.deliveries);
-        updateCardWorkload('today', 'warehousing', todayPrediction.orders);
+        updateCardWorkload('today', 'forwarding', '');
+        updateCardWorkload('today', 'warehousing', '');
         updateCardWorkload('tomorrow', 'delivery', tomorrowPrediction.deliveries);
-        updateCardWorkload('tomorrow', 'forwarding', tomorrowPrediction.deliveries);
-        updateCardWorkload('tomorrow', 'warehousing', tomorrowPrediction.orders);
+        updateCardWorkload('tomorrow', 'forwarding', '');
+        updateCardWorkload('tomorrow', 'warehousing', '');
     }
 
     function updateCardWorkload(dayId, taskType, workload) {
         const card = document.querySelector(`#${dayId} .calculator-card[data-task-type="${taskType}"]`);
         if (card) {
             const workloadInput = card.querySelector('.workload');
-            if (taskType === 'delivery') {
-                workloadInput.value = workload;
-            } else {
-                 workloadInput.value = (lastWorkloads[taskType] !== undefined && lastWorkloads[taskType] !== null) ? lastWorkloads[taskType] : '';
-            }
+            workloadInput.value = workload;
             calculateAndDisplayTime(card);
         }
     }
@@ -843,23 +886,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateKey = (dayId === 'today') ? new Date().toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0];
         const prediction = predictionLog[dateKey];
 
+        const deliveryTimeText = container.querySelector('.calculator-card[data-task-type="delivery"] .result-time').textContent;
         const forwardingWorkload = container.querySelector('.calculator-card[data-task-type="forwarding"] .workload').value || '0';
+        const forwardingTimeText = container.querySelector('.calculator-card[data-task-type="forwarding"] .result-time').textContent;
         const warehousingWorkload = container.querySelector('.calculator-card[data-task-type="warehousing"] .workload').value || '0';
+        const warehousingTimeText = container.querySelector('.calculator-card[data-task-type="warehousing"] .result-time').textContent;
 
-        const systemPrompt = "당신은 온라인 여성 의류 쇼핑몰의 유능하고 효율적인 물류팀장입니다. 우리 팀의 업무 개념과 순서를 명확히 이해하고 계획을 작성해야 합니다. **근무 시간:** 08:30 ~ 17:30. **업무 개념:** '배송'은 일반적인 피킹, 포장, 발송 전체를 의미하는 핵심 업무이며, 예측된 배송량을 처리합니다. '직진배송'은 이와는 완전히 별개의 빠른 배송 업무입니다. '제작입고'는 상품 입고 업무입니다. **업무 순서 및 방식:** 모든 업무는 순차적으로 진행됩니다. 일반적인 순서는 [오전 배송 -> 제작입고 (있는 경우) -> 직진배송 -> 오후 배송] 입니다. '배송' 업무는 오전에 전체 물량의 약 40-50%를 한 번에 처리하고, 오후에 나머지 물량을 2~3회에 나누어 처리합니다. 이 정보를 바탕으로, 실제 현장에서 바로 사용할 수 있는 간결하고 명확한 '일일 업무 계획서'를 작성해주세요. 보고서는 항상 한국어로 작성해주세요.";
+        const systemPrompt = "당신은 온라인 여성 의류 쇼핑몰의 유능하고 효율적인 물류팀장입니다. 우리 팀의 업무 규칙을 명확히 이해하고 계획을 작성해야 합니다. **근무 시간:** 08:30 ~ 17:30. **점심 시간:** 12:30 ~ 13:30 (이 시간 동안 모든 업무 중단). **업무 개념:** '배송'은 일반적인 피킹, 포장, 발송 전체를 의미하는 핵심 업무이며, 예측된 배송량을 처리합니다. '직진배송'은 이와는 완전히 별개의 빠른 배송 업무입니다. '제작입고'는 상품 입고 업무입니다. **업무 순서 및 방식:** 모든 업무는 순차적으로 진행되며, 일반적인 순서는 [오전 배송 -> 제작입고 (있는 경우) -> 직진배송 -> 오후 배송] 입니다. '배송' 업무는 오전에 전체 물량의 약 45%를 처리하고, 오후에 나머지 물량을 나눠서 처리합니다. **중요 규칙:** 만약 특정 업무가 점심시간 전에 시작되었으나 끝나지 않았다면, 12:30에 중단하고 13:30에 이어서 계속 진행한 후 다음 업무로 넘어갑니다. 주어진 각 업무의 '예상 소요 시간'을 반드시 반영하여 현실적인 작업 타임라인을 분 단위로 계산해주세요. 이 모든 정보를 바탕으로, 실제 현장에서 바로 사용할 수 있는 간결하고 명확한 '일일 업무 계획서'를 작성해주세요. 보고서는 항상 한국어로 작성해주세요.";
         const userQuery = `
         아래 데이터를 바탕으로 ${dateString}의 '일일 업무 계획서'를 작성해주세요.
 
         **핵심 데이터:**
-        - 예측 배송 업무량 (피킹/포장/발송): ${prediction.deliveries}건
+        - 예측 배송 업무량 (전체): ${prediction.deliveries}건
         - 직진배송 업무량: ${forwardingWorkload}건
         - 제작입고 업무량: ${warehousingWorkload}건
         - 총 예상 소요 시간: ${totalTimeText}
         - 업무 시간 상태: ${statusText}
 
+        **각 업무별 예상 소요 시간:**
+        - 배송(전체): ${deliveryTimeText}
+        - 직진배송: ${forwardingTimeText}
+        - 제작입고: ${warehousingTimeText}
+
         **계획서 필수 포함 항목:**
         1.  **핵심 목표 (Key Goals)**: 오늘의 처리해야 할 가장 중요한 목표 수치를 2~3줄로 요약.
-        2.  **작업 타임라인 (Work Timeline)**: [오전 배송 -> 제작입고(있는 경우) -> 직진배송 -> 오후 배송] 순서에 따라, 각 작업의 예상 시작/종료 시간, 주요 내용, 담당 인원을 명확하게 명시. 특히 배송 업무는 오전과 오후로 나누어 계획해주세요.
+        2.  **작업 타임라인 (Work Timeline)**: 근무 시간(08:30-17:30)과 점심시간(12:30-13:30)을 엄격히 준수하고, [오전 배송 -> 제작입고(있는 경우) -> 직진배송 -> 오후 배송] 순서에 따라, 각 작업의 예상 시작/종료 시간, 주요 내용, 담당 인원을 명확하게 명시. 특히 배송 업무는 오전(약 45%)과 오후로 나누어 계획하고, 점심시간에 걸치는 업무는 중단 후 재개하는 것을 반영해주세요.
         3.  **주요 지시사항 (Key Instructions)**: 예상되는 문제점이나 팀원들이 특별히 신경 써야 할 부분을 2~3가지 항목으로 간결하게 지시.
 
         **작성 스타일:**
@@ -899,9 +950,73 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- Gemini AI Advanced Analysis ---
+    async function generateAdvancedAnalysis() {
+        aiAnalysisModal.classList.remove('hidden');
+        aiAnalysisContent.innerHTML = '<div class="flex justify-center items-center h-full"><svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-4 text-gray-700">AI가 데이터를 심층 분석하고 있습니다...</span></div>';
+        
+        const systemPrompt = "당신은 여성 의류 쇼핑몰의 데이터를 전문적으로 분석하는 최고 수준의 데이터 분석가입니다. 당신의 임무는 주어진 원시 데이터를 바탕으로, 경영진이 비즈니스 전략을 수립하는 데 도움이 될 만한 깊이 있는 통찰력과 실행 가능한 제안을 도출하는 것입니다. 분석은 반드시 다음 항목들을 포함해야 하며, 전문적이면서도 이해하기 쉬운 언어로 설명해야 합니다. 보고서는 항상 한국어로 작성해주세요.";
+        const userQuery = `
+        아래는 우리 쇼핑몰의 과거 판매 데이터입니다. 이 데이터를 심층적으로 분석하여 비즈니스 인사이트 보고서를 작성해주세요.
+
+        **분석 데이터:**
+        ${JSON.stringify(historicalData.map(d => ({...d, date: d.date.toISOString().split('T')[0]})))}
+
+        **보고서 필수 포함 항목:**
+        1.  **전반적인 판매 동향 분석:** 최근 데이터에 가중치를 두어 전체적인 주문량 및 배송량의 성장, 정체, 또는 하락 추세를 분석해주세요.
+        2.  **요일별 패턴 심층 분석:** 어떤 요일에 주문이 가장 많고 적은지, 그리고 그 이유는 무엇일지 추론해주세요.
+        3.  **이벤트 효과 분석:** '프로모션'과 '제작입고' 이벤트가 주문량 및 배송량에 미치는 영향을 수치적으로 분석하고, 그 효과를 평가해주세요.
+        4.  **주기성 및 계절성 분석 (예비):** 현재 데이터 양으로 파악할 수 있는 월별 또는 계절적 패턴이 있는지 예비 분석을 제공해주세요. (데이터가 1년 미만일 경우, 더 정확한 분석을 위해 1년 이상의 데이터가 필요하다고 언급해주세요.)
+        5.  **전략적 제안:** 위 분석 내용을 바탕으로, 앞으로의 재고 관리, 인력 운영, 마케팅 전략에 대해 실행 가능한 2~3가지 구체적인 제안을 해주세요.
+        `;
+
+        const apiKey = "AIzaSyCVqaGpAA_YW5y8pUiiiXNohS6XqEbyv1A";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API call failed with status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (text) {
+                aiAnalysisContent.innerHTML = text.replace(/\n/g, '<br>');
+            } else {
+                aiAnalysisContent.textContent = 'AI로부터 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요.';
+            }
+
+        } catch (error) {
+            console.error('Error generating AI analysis:', error);
+            aiAnalysisContent.textContent = `오류가 발생했습니다: ${error.message}`;
+        }
+    }
+
 
     // --- Modal Data Handling ---
-    function renderDataModal(data) { const container = document.getElementById('data-input-grid-container'); const dayNames = ['일', '월', '화', '수', '목', '금', '토']; let gridHTML = `<div class="grid grid-cols-6 gap-x-4 gap-y-2 text-sm text-center font-semibold data-grid-header py-2 border-b"> <div>날짜</div> <div>주문량</div> <div>배송량</div> <div>프로모션</div> <div>휴일</div> <div>제작입고</div> </div>`; data.forEach(d => { const date = d.date; const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; const dayName = dayNames[date.getDay()]; gridHTML += `<div class="grid grid-cols-6 gap-x-4 items-center py-2 border-b border-gray-100" data-date="${dateString}"><div class="text-center text-xs">${dateString} (${dayName})</div><div><input type="number" value="${d.orders}" class="w-full p-1.5 border rounded-md text-center"></div> <div><input type="number" value="${d.deliveries}" class="w-full p-1.5 border rounded-md text-center"></div><div class="text-center"><input type="checkbox" ${d.events.promotion ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.holiday ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.warehousing ? 'checked' : ''} class="event-checkbox h-5 w-5"></div></div>`; }); container.innerHTML = gridHTML; }
+    function renderDataModal(dataToRender = null) {
+        const data = dataToRender || historicalData.slice(0, 30);
+        const container = document.getElementById('data-input-grid-container');
+        const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+        let gridHTML = `<div class="grid grid-cols-6 gap-x-4 gap-y-2 text-sm text-center font-semibold data-grid-header py-2 border-b"> <div>날짜</div> <div>주문량</div> <div>배송량</div> <div>프로모션</div> <div>휴일</div> <div>제작입고</div> </div>`;
+        data.forEach(d => {
+            const date = d.date;
+            const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            const dayName = dayNames[date.getDay()];
+            gridHTML += `<div class="grid grid-cols-6 gap-x-4 items-center py-2 border-b border-gray-100" data-date="${dateString}"><div class="text-center text-xs">${dateString} (${dayName})</div><div><input type="number" value="${d.orders}" class="w-full p-1.5 border rounded-md text-center"></div> <div><input type="number" value="${d.deliveries}" class="w-full p-1.5 border rounded-md text-center"></div><div class="text-center"><input type="checkbox" ${d.events.promotion ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.holiday ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.warehousing ? 'checked' : ''} class="event-checkbox h-5 w-5"></div></div>`;
+        });
+        container.innerHTML = gridHTML;
+    }
     function readDataFromModal() { const rows = document.querySelectorAll('#data-input-grid-container > div[data-date]'); return Array.from(rows).map(row => { const inputs = row.querySelectorAll('input'); return { date: new Date(row.dataset.date), orders: parseInt(inputs[0].value, 10) || 0, deliveries: parseInt(inputs[1].value, 10) || 0, events: { promotion: inputs[2].checked, holiday: inputs[3].checked, warehousing: inputs[4].checked, } }; }).sort((a, b) => b.date - a.date); }
     function getFutureEvents() { const getEvents = (container) => { const cbs = container.querySelectorAll('input[type="checkbox"]'); return { promotion: cbs[0].checked, holiday: cbs[1].checked, warehousing: cbs[2].checked }; }; return { today: getEvents(document.querySelector('#futureEvents div[data-day="today"]')), tomorrow: getEvents(document.querySelector('#futureEvents div[data-day="tomorrow"]')) }; }
 
