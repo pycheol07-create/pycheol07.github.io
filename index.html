@@ -472,6 +472,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Pull to Refresh ---
+    const ptrIndicator = document.getElementById('ptr-indicator');
+    let touchStartY = 0;
+    const ptrThreshold = 80;
+
+    document.addEventListener('touchstart', (e) => {
+        if (window.scrollY === 0) {
+            touchStartY = e.touches[0].clientY;
+        } else {
+            touchStartY = -1;
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        if (touchStartY === -1) return;
+
+        const touchY = e.touches[0].clientY;
+        const pullDistance = touchY - touchStartY;
+
+        if (pullDistance > 0) {
+            ptrIndicator.style.opacity = Math.min(pullDistance / ptrThreshold, 1).toString();
+            const rotation = Math.min(pullDistance, ptrThreshold) * 2;
+            ptrIndicator.querySelector('svg').style.transform = `rotate(${rotation}deg)`;
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        if (touchStartY === -1) return;
+
+        const touchY = e.changedTouches[0].clientY;
+        const pullDistance = touchY - touchStartY;
+        
+        ptrIndicator.style.opacity = '0';
+        ptrIndicator.querySelector('svg').style.transform = 'rotate(0deg)';
+
+        if (pullDistance > ptrThreshold) {
+            window.location.reload();
+        }
+        
+        touchStartY = 0;
+    });
+
     // --- Core Functions ---
     function handleAnalysis() {
         runPredictionBtn.disabled = true; runPredictionBtnSpinner.classList.remove('hidden'); runPredictionBtnText.textContent = '예측 중...';
