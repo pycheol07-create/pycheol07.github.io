@@ -531,8 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const summaryEl = container.querySelector('.summary-container');
         let totalHours = 0;
         let totalManMinutes = 0;
-        let currentTotalPersonnel = 0;
-
+        
         container.querySelectorAll('.calculator-card').forEach(card => {
             totalHours += parseFloat(card.querySelector('.result-time').dataset.hours) || 0;
             const workload = parseFloat(card.querySelector('.workload').value) || 0;
@@ -540,9 +539,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (rate > 0) {
                 totalManMinutes += workload / rate;
             }
-            currentTotalPersonnel += parseInt(card.querySelector('.personnel').value, 10) || 0;
         });
 
+        const currentTotalPersonnel = parseInt(globalPersonnelInput.value, 10) || 1;
         const difference = totalHours - 8;
         let summaryHTML = `<p class="text-lg font-bold">총 예상 소요 시간: <span class="text-blue-600">${formatHoursToHM(totalHours)}</span></p>`;
         
