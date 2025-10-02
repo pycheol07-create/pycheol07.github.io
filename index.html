@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>수요 예측 및 업무 소요 시간 계산기</title>
+    <title>업무량 예측.계획 프로그램</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js CDN -->
@@ -44,11 +44,16 @@
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
+    <div id="ptr-indicator" class="fixed top-4 left-1/2 -translate-x-1/2 bg-white rounded-full p-2 shadow-lg opacity-0 transition-opacity duration-300 z-50">
+        <svg class="h-6 w-6 text-indigo-600 transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M20 4l-4 4M4 20l4-4" />
+        </svg>
+    </div>
 
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <!-- Header -->
         <header class="text-center mb-10">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">수요 예측 및 업무 소요 시간 계산기</h1>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">업무량 예측.계획 프로그램</h1>
             <p class="mt-2 text-md text-gray-600">과거 데이터를 기반으로 미래 수요를 예측하고 효율적인 인력 운영 계획을 수립하세요.</p>
         </header>
 
@@ -533,7 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Learning & Prediction ---
-    function learnFromNewData(newDataArray) { newDataArray.forEach(actual => { const dateString = actual.date.toISOString().split('T')[0]; if (predictionLog[dateString]) { updateAdjustmentFactors(predictionLog[dateString], actual); delete predictionLog[dateString]; } }); }
+    function learnFromNewData(newDataArray) { newDataArray.forEach(actual => { const dateString = actual.date.toISOString().split('T')[0]; if (predictionLog[dateString] && (actual.orders > 0 || actual.deliveries > 0)) { const prediction = predictionLog[dateString]; updateAdjustmentFactors(prediction, actual); delete predictionLog[dateString]; } }); }
     function updateAdjustmentFactors(prediction, actual) { const targetDay = actual.date.getDay(); if (prediction.orders === 0 || prediction.deliveries === 0) return; const orderRatio = actual.orders / prediction.orders; const deliveryRatio = actual.deliveries / prediction.deliveries; let oldOrderFactor = adjustmentFactors.dayOfWeek[targetDay].orders; let oldDeliveryFactor = adjustmentFactors.dayOfWeek[targetDay].deliveries; adjustmentFactors.dayOfWeek[targetDay].orders = oldOrderFactor * (1 - LEARNING_RATE) + orderRatio * LEARNING_RATE; adjustmentFactors.dayOfWeek[targetDay].deliveries = oldDeliveryFactor * (1 - LEARNING_RATE) + deliveryRatio * LEARNING_RATE; }
     
     function predict(data, targetDate, futureEvents, todayPrediction = null) {
@@ -796,25 +801,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateKey = (dayId === 'today') ? new Date().toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0];
         const prediction = predictionLog[dateKey];
 
-        const systemPrompt = "당신은 온라인 여성 의류 쇼핑몰의 유능한 물류팀장입니다. 우리 팀의 업무 용어는 다음과 같습니다: '배송'은 일반적인 피킹, 포장, 발송 전체를 의미하는 핵심 업무입니다. '직진배송'은 별도로 처리하는 빠른 배송 업무입니다. '제작입고'는 상품을 창고에 입고시키는 업무입니다. 이 용어 정의를 바탕으로, 주어진 데이터를 활용하여 팀원들이 명확하게 이해하고 동기부여를 받을 수 있는 구체적이고 현실적인 일일 업무 계획 보고서를 작성해야 합니다. 보고서는 항상 한국어로 작성해주세요.";
+        const forwardingWorkload = container.querySelector('.calculator-card[data-task-type="forwarding"] .workload').value || '0';
+        const warehousingWorkload = container.querySelector('.calculator-card[data-task-type="warehousing"] .workload').value || '0';
+
+        const systemPrompt = "당신은 온라인 여성 의류 쇼핑몰의 유능하고 효율적인 물류팀장입니다. 우리 팀의 업무 개념과 순서를 명확히 이해하고 계획을 작성해야 합니다. **업무 개념:** '배송'은 일반적인 피킹, 포장, 발송 전체를 의미하는 핵심 업무이며, 예측된 배송량을 처리합니다. '직진배송'은 이와는 완전히 별개의 빠른 배송 업무입니다. '제작입고'는 상품 입고 업무입니다. **업무 순서:** 모든 업무는 순차적으로 진행되며 일반적인 순서는 [오전 배송 -> 오후 배송 -> 제작입고 -> 직진배송] 입니다. 이 정보를 바탕으로, 보고서가 아닌 실제 현장에서 바로 사용할 수 있는 간결하고 명확한 '일일 업무 계획서'를 작성해주세요. 보고서는 항상 한국어로 작성해주세요.";
         const userQuery = `
-        아래 데이터를 바탕으로 ${dateString}의 일일 업무 계획 보고서를 작성해주세요.
+        아래 데이터를 바탕으로 ${dateString}의 '일일 업무 계획서'를 작성해주세요.
 
         **핵심 데이터:**
-        - 예측 주문량: ${prediction.orders}건
-        - 예측 배송량: ${prediction.deliveries}건
+        - 예측 배송 업무량 (피킹/포장/발송): ${prediction.deliveries}건
+        - 직진배송 업무량: ${forwardingWorkload}건
+        - 제작입고 업무량: ${warehousingWorkload}건
         - 총 예상 소요 시간: ${totalTimeText}
         - 업무 시간 상태: ${statusText}
 
-        **보고서 필수 포함 항목:**
-        1.  **아침 브리핑**: 오늘의 목표와 주요 수치를 간결하게 요약.
-        2.  **업무 배분 계획**: '배송(피킹/포장/발송)', '직진배송', '제작입고' 업무에 대한 인원 배분 및 시간대별 집중 업무 제안.
-        3.  **핵심 검토사항**: 예상되는 문제점(병목 현상 등)을 지적하고, 이를 해결하기 위한 구체적인 지시사항 포함.
-        4.  **마무리 메시지**: 팀의 사기를 높이는 긍정적이고 힘찬 메시지.
+        **계획서 필수 포함 항목:**
+        1.  **핵심 목표 (Key Goals)**: 오늘의 처리해야 할 가장 중요한 목표 수치를 2~3줄로 요약.
+        2.  **작업 타임라인 (Work Timeline)**: [오전 배송 -> 오후 배송 -> 제작입고 -> 직진배송] 순서에 따라, 각 작업의 예상 시작/종료 시간, 주요 내용, 담당 인원을 명확하게 명시.
+        3.  **주요 지시사항 (Key Instructions)**: 예상되는 문제점이나 팀원들이 특별히 신경 써야 할 부분을 2~3가지 항목으로 간결하게 지시.
 
         **작성 스타일:**
-        - 각 항목을 명확하게 구분하고, 전문적이면서도 이해하기 쉬운 톤으로 작성해주세요.
-        - 팀원들이 바로 행동에 옮길 수 있도록 지시사항은 구체적으로 제시해주세요.
+        - 보고서의 서론, 결론, 격려 메시지 등은 제외하고, 실제 업무 지시에 필요한 내용만 간결하게 작성해주세요.
+        - 각 항목은 명확하게 구분하고, 팀원들이 바로 이해할 수 있도록 직설적으로 작성해주세요.
         `;
 
         const apiKey = "AIzaSyCVqaGpAA_YW5y8pUiiiXNohS6XqEbyv1A";
