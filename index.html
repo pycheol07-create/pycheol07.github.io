@@ -421,7 +421,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (card) {
                 const taskType = card.dataset.taskType;
                 if (taskType === 'forwarding' || taskType === 'warehousing') {
-                    saveLastWorkload(taskType, e.target.value);
+                    // This feature was removed per user request.
+                    // saveLastWorkload(taskType, e.target.value);
                 }
             }
         }
@@ -728,6 +729,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatHoursToHM(decimalHours) { if (isNaN(decimalHours) || decimalHours < 0) { return '0시간 0분'; } const totalMinutes = Math.round(decimalHours * 60); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${hours}시간 ${minutes}분`; }
 
     // --- Data Persistence ---
+    function loadLastWorkloads() { /* This feature was removed per user request. */ }
+    function saveLastWorkload() { /* This feature was removed per user request. */ }
     function loadThroughputs() { const saved = localStorage.getItem('taskThroughputs'); taskThroughputs = saved ? JSON.parse(saved) : { delivery: 5, forwarding: 5, warehousing: 5 }; }
     function saveThroughputs() { localStorage.setItem('taskThroughputs', JSON.stringify(taskThroughputs)); }
     function loadHistoricalData() {
@@ -955,7 +958,7 @@ document.addEventListener('DOMContentLoaded', () => {
         aiAnalysisModal.classList.remove('hidden');
         aiAnalysisContent.innerHTML = '<div class="flex justify-center items-center h-full"><svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-4 text-gray-700">AI가 데이터를 심층 분석하고 있습니다...</span></div>';
         
-        const systemPrompt = "당신은 여성 의류 쇼핑몰의 데이터를 전문적으로 분석하는 최고 수준의 데이터 분석가입니다. 당신의 임무는 주어진 원시 데이터를 바탕으로, 경영진이 비즈니스 전략을 수립하는 데 도움이 될 만한 깊이 있는 통찰력과 실행 가능한 제안을 도출하는 것입니다. 분석은 반드시 다음 항목들을 포함해야 하며, 전문적이면서도 이해하기 쉬운 언어로 설명해야 합니다. 보고서는 항상 한국어로 작성해주세요.";
+        const systemPrompt = "당신은 여성 의류 쇼핑몰의 데이터를 전문적으로 분석하는 최고 수준의 데이터 분석가입니다. 당신의 임무는 주어진 원시 데이터를 바탕으로, 경영진이 비즈니스 전략을 수립하는 데 도움이 될 만한 깊이 있는 통찰력과 실행 가능한 제안을 도출하는 것입니다. 추가적으로, 최근 데이터의 흐름과 요일별 패턴을 종합하여 향후 며칠간의 주문량 증감 추세를 예측해야 합니다. 분석은 반드시 다음 항목들을 포함해야 하며, 전문적이면서도 이해하기 쉬운 언어로 설명해야 합니다. 보고서는 항상 한국어로 작성해주세요.";
         const userQuery = `
         아래는 우리 쇼핑몰의 과거 판매 데이터입니다. 이 데이터를 심층적으로 분석하여 비즈니스 인사이트 보고서를 작성해주세요.
 
@@ -968,6 +971,7 @@ document.addEventListener('DOMContentLoaded', () => {
         3.  **이벤트 효과 분석:** '프로모션'과 '제작입고' 이벤트가 주문량 및 배송량에 미치는 영향을 수치적으로 분석하고, 그 효과를 평가해주세요.
         4.  **주기성 및 계절성 분석 (예비):** 현재 데이터 양으로 파악할 수 있는 월별 또는 계절적 패턴이 있는지 예비 분석을 제공해주세요. (데이터가 1년 미만일 경우, 더 정확한 분석을 위해 1년 이상의 데이터가 필요하다고 언급해주세요.)
         5.  **전략적 제안:** 위 분석 내용을 바탕으로, 앞으로의 재고 관리, 인력 운영, 마케팅 전략에 대해 실행 가능한 2~3가지 구체적인 제안을 해주세요.
+        6.  **향후 단기 전망:** 위 모든 분석을 종합하여, 향후 3~5일 동안 주문량이 증가할 것으로 예상되는지, 또는 감소할 것으로 예상되는지 그 이유와 함께 간결하게 전망해주세요.
         `;
 
         const apiKey = "AIzaSyCVqaGpAA_YW5y8pUiiiXNohS6XqEbyv1A";
