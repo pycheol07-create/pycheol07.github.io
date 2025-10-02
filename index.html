@@ -427,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     saveRatesBtn.addEventListener('click', () => {
-        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진(피킹)' }, { id: 'warehousing', name: '제작입고' } ];
+        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진배송' }, { id: 'warehousing', name: '제작입고' } ];
         tasks.forEach(task => {
             taskThroughputs[task.id] = parseFloat(document.getElementById(`rate-${task.id}`).value) || 0;
         });
@@ -680,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Calculator & Throughput ---
     function renderThroughputSettings() {
         const container = document.getElementById('throughputSettings');
-        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진(피킹)' }, { id: 'warehousing', name: '제작입고' } ];
+        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진배송' }, { id: 'warehousing', name: '제작입고' } ];
         let inputsHTML = tasks.map(task => `<div><label class="block mb-1 text-gray-600 text-sm">${task.name}</label><input type="number" id="rate-${task.id}" class="w-full p-2 border rounded-md" value="${taskThroughputs[task.id]}"></div>`).join('');
         container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">${inputsHTML}</div>`;
         const inputs = tasks.map(task => document.getElementById(`rate-${task.id}`));
@@ -763,7 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generateCalculatorHTML() {
-        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진(피킹)' }, { id: 'warehousing', name: '제작입고' } ];
+        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진배송' }, { id: 'warehousing', name: '제작입고' } ];
         const cardsHTML = tasks.map(task => `
             <div class="calculator-card border border-gray-200 p-4 rounded-lg" data-task-type="${task.id}">
                 <div class="flex items-center justify-between mb-3">
@@ -796,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateKey = (dayId === 'today') ? new Date().toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0];
         const prediction = predictionLog[dateKey];
 
-        const systemPrompt = "당신은 온라인 여성 의류 쇼핑몰의 유능한 물류팀장입니다. 주어진 데이터를 바탕으로, 팀원들이 명확하게 이해하고 동기부여를 받을 수 있는 구체적이고 현실적인 일일 업무 계획 보고서를 작성해야 합니다. 보고서는 항상 한국어로 작성해주세요.";
+        const systemPrompt = "당신은 온라인 여성 의류 쇼핑몰의 유능한 물류팀장입니다. 우리 팀의 업무 용어는 다음과 같습니다: '배송'은 일반적인 피킹, 포장, 발송 전체를 의미하는 핵심 업무입니다. '직진배송'은 별도로 처리하는 빠른 배송 업무입니다. '제작입고'는 상품을 창고에 입고시키는 업무입니다. 이 용어 정의를 바탕으로, 주어진 데이터를 활용하여 팀원들이 명확하게 이해하고 동기부여를 받을 수 있는 구체적이고 현실적인 일일 업무 계획 보고서를 작성해야 합니다. 보고서는 항상 한국어로 작성해주세요.";
         const userQuery = `
         아래 데이터를 바탕으로 ${dateString}의 일일 업무 계획 보고서를 작성해주세요.
 
@@ -808,7 +808,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         **보고서 필수 포함 항목:**
         1.  **아침 브리핑**: 오늘의 목표와 주요 수치를 간결하게 요약.
-        2.  **업무 배분 계획**: 배송, 직진(피킹), 제작입고 업무에 대한 인원 배분 및 시간대별 집중 업무 제안.
+        2.  **업무 배분 계획**: '배송(피킹/포장/발송)', '직진배송', '제작입고' 업무에 대한 인원 배분 및 시간대별 집중 업무 제안.
         3.  **핵심 검토사항**: 예상되는 문제점(병목 현상 등)을 지적하고, 이를 해결하기 위한 구체적인 지시사항 포함.
         4.  **마무리 메시지**: 팀의 사기를 높이는 긍정적이고 힘찬 메시지.
 
@@ -862,5 +862,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
-
 
