@@ -56,7 +56,7 @@
             <!-- Top Section: Controls & Calculator -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- Left Column: Controls & Predictions -->
-                <div class="card p-6">
+                <div class="card p-6 flex flex-col">
                     <h2 class="text-xl font-semibold mb-4 border-b pb-2">1. 분석 및 예측</h2>
                     <div class="space-y-4">
                         <button id="openDataModalBtn" class="w-full bg-gray-700 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 btn">
@@ -97,6 +97,32 @@
                     <div id="modelAccuracy" class="mt-4">
                         <!-- Model accuracy will be injected here -->
                     </div>
+
+                    <div class="mt-6 flex-grow flex flex-col justify-end">
+                        <details>
+                            <summary class="font-semibold cursor-pointer text-md text-gray-700 hover:text-black flex items-center justify-between border-t pt-4">
+                                <span>연휴 누적량 예측</span>
+                                <svg class="w-5 h-5 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </summary>
+                            <div class="mt-4 p-4 bg-gray-50 rounded-lg space-y-4">
+                                <div>
+                                    <label for="holidayStartDate" class="block text-sm font-medium text-gray-700">연휴 시작일</label>
+                                    <input type="date" id="holidayStartDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                                </div>
+                                <div>
+                                    <label for="holidayEndDate" class="block text-sm font-medium text-gray-700">연휴 종료일</label>
+                                    <input type="date" id="holidayEndDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                                </div>
+                                <button id="predictBacklogBtn" class="w-full bg-teal-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-700 btn text-sm">
+                                    누적량 예측
+                                </button>
+                                <div id="backlogResultDiv" class="text-sm mt-2"></div>
+                            </div>
+                        </details>
+                    </div>
+
                 </div>
 
                 <!-- Right Column: Calculator -->
@@ -215,6 +241,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveRatesBtn = throughputModal.querySelector('#saveRatesBtn');
     const globalPersonnelInput = document.getElementById('globalPersonnel');
     const applyPersonnelBtn = document.getElementById('applyPersonnelBtn');
+    const predictBacklogBtn = document.getElementById('predictBacklogBtn');
+    const holidayStartDateInput = document.getElementById('holidayStartDate');
+    const holidayEndDateInput = document.getElementById('holidayEndDate');
+    const backlogResultDiv = document.getElementById('backlogResultDiv');
 
     let predictionChart;
     let historicalData = [];
@@ -337,6 +367,9 @@ document.addEventListener('DOMContentLoaded', () => {
         throughputModal.classList.add('hidden');
     });
 
+    predictBacklogBtn.addEventListener('click', handleBacklogPrediction);
+
+
     // --- Core Functions ---
     function handleAnalysis() {
         runPredictionBtn.disabled = true; runPredictionBtnSpinner.classList.remove('hidden'); runPredictionBtnText.textContent = '예측 중...';
@@ -349,14 +382,58 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
     }
     
+    function handleBacklogPrediction() {
+        const startDate = holidayStartDateInput.value;
+        const endDate = holidayEndDateInput.value;
+
+        if (!startDate || !endDate) {
+            alert('연휴 시작일과 종료일을 모두 선택해주세요.');
+            return;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        if (start > end) {
+            alert('종료일은 시작일보다 빠를 수 없습니다.');
+            return;
+        }
+        
+        start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
+        end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
+
+        let totalBacklogOrders = 0;
+        const holidayEvents = { promotion: false, holiday: true, warehousing: false }; 
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const holidayPrediction = predict(historicalData, new Date(d), holidayEvents);
+            totalBacklogOrders += holidayPrediction.orders;
+        }
+        
+        let firstWorkDay = new Date(end);
+        firstWorkDay.setDate(firstWorkDay.getDate() + 1);
+
+        const firstWorkDayEvents = { promotion: false, holiday: false, warehousing: false };
+        const firstWorkDayPrediction = predict(historicalData, firstWorkDay, firstWorkDayEvents);
+
+        const normalOrders = firstWorkDayPrediction.orders;
+        const totalOrders = normalOrders + totalBacklogOrders;
+        
+        backlogResultDiv.innerHTML = `
+            <div class="p-3 bg-teal-50 text-teal-800 rounded-lg border border-teal-200">
+                <p class="font-semibold">연휴 이후 첫 근무일(${firstWorkDay.toLocaleDateString()}) 예상:</p>
+                <p class="mt-1"><strong>총 예상 주문량: ${totalOrders}건</strong></p>
+                <p class="text-xs">(기본 ${normalOrders}건 + 연휴 누적 ${totalBacklogOrders}건)</p>
+            </div>
+        `;
+    }
+
     // --- Learning & Prediction ---
     function learnFromNewData(newDataArray) { newDataArray.forEach(actual => { const dateString = actual.date.toISOString().split('T')[0]; if (predictionLog[dateString]) { updateAdjustmentFactors(predictionLog[dateString], actual); delete predictionLog[dateString]; } }); }
     function updateAdjustmentFactors(prediction, actual) { const targetDay = actual.date.getDay(); if (prediction.orders === 0 || prediction.deliveries === 0) return; const orderRatio = actual.orders / prediction.orders; const deliveryRatio = actual.deliveries / prediction.deliveries; let oldOrderFactor = adjustmentFactors.dayOfWeek[targetDay].orders; let oldDeliveryFactor = adjustmentFactors.dayOfWeek[targetDay].deliveries; adjustmentFactors.dayOfWeek[targetDay].orders = oldOrderFactor * (1 - LEARNING_RATE) + orderRatio * LEARNING_RATE; adjustmentFactors.dayOfWeek[targetDay].deliveries = oldDeliveryFactor * (1 - LEARNING_RATE) + deliveryRatio * LEARNING_RATE; }
     
     function predict(data, targetDate, futureEvents, todayPrediction = null) {
         const targetDay = targetDate.getDay();
-
-        // 1. PREDICT ORDERS (Same logic as before)
         const relevantOrderDaysData = data.filter(d => d.date.getDay() === targetDay);
         const orderBaseSource = (relevantOrderDaysData.length > 0 ? relevantOrderDaysData : data.slice(-7)).sort((a,b) => b.date - a.date);
         let weightedOrderSum = 0, orderTotalWeight = 0;
@@ -367,17 +444,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (futureEvents.holiday) { predictedOrders *= multipliers.holiday.orders; }
         if (futureEvents.warehousing) { predictedOrders *= multipliers.warehousing.orders; }
         predictedOrders *= adjustmentFactors.dayOfWeek[targetDay].orders;
-
-        // 2. PREDICT DELIVERIES (New logic based on previous day's orders)
         let previousDayOrders;
-        if (todayPrediction) { // Predicting for TOMORROW, use TODAY's predicted orders
+        if (todayPrediction) {
             previousDayOrders = todayPrediction.orders;
-        } else { // Predicting for TODAY, use YESTERDAY's actual orders
+        } else {
             const yesterday = new Date(targetDate);
             yesterday.setDate(targetDate.getDate() - 1);
             const yesterdayStr = yesterday.toISOString().split('T')[0];
             const yesterdayData = data.find(d => d.date.toISOString().split('T')[0] === yesterdayStr);
-            previousDayOrders = yesterdayData ? yesterdayData.orders : data[0].orders; // Fallback to most recent
+            previousDayOrders = yesterdayData ? yesterdayData.orders : data[0].orders;
         }
         
         const deliveryRatio = calculateDeliveryRatio(data);
@@ -451,7 +526,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateCardWorkload(dayId, taskType, workload) { const card = document.querySelector(`#${dayId} .calculator-card[data-task-type="${taskType}"]`); if (card) { card.querySelector('.workload').value = workload; calculateAndDisplayTime(card); } }
     function calculateAndDisplayTime(card) { const taskType = card.dataset.taskType; const rate = taskThroughputs[taskType] || 0; const workload = parseFloat(card.querySelector('.workload').value); const personnel = parseInt(card.querySelector('.personnel').value, 10); const resultEl = card.querySelector('.result-time'); let totalHours = 0; if (rate > 0 && workload > 0 && personnel > 0) { totalHours = (workload / (rate * personnel) / 60); } resultEl.dataset.hours = totalHours.toFixed(4); resultEl.textContent = formatHoursToHM(totalHours); updateWorkSummary(card.closest('.tab-content').id); }
-    function updateWorkSummary(dayId) { const container = document.getElementById(dayId); const summaryEl = container.querySelector('.summary-container'); let totalHours = 0; container.querySelectorAll('.result-time').forEach(el => { totalHours += parseFloat(el.dataset.hours) || 0; }); const difference = totalHours - 8; let summaryHTML = `<p class="text-lg font-bold">총 예상 소요 시간: <span class="text-blue-600">${formatHoursToHM(totalHours)}</span></p>`; if (difference > 0) { summaryHTML += `<p class="text-sm font-medium text-red-600">기준 시간(8시간) 대비 ${formatHoursToHM(difference)} 초과</p>`; } else { summaryHTML += `<p class="text-sm font-medium text-green-600">기준 시간(8시간)까지 ${formatHoursToHM(Math.abs(difference))} 여유</p>`; } summaryEl.innerHTML = summaryHTML; }
+    function updateWorkSummary(dayId) {
+        const container = document.getElementById(dayId);
+        const summaryEl = container.querySelector('.summary-container');
+        let totalHours = 0;
+        let totalManMinutes = 0;
+        let currentTotalPersonnel = 0;
+
+        container.querySelectorAll('.calculator-card').forEach(card => {
+            totalHours += parseFloat(card.querySelector('.result-time').dataset.hours) || 0;
+            const workload = parseFloat(card.querySelector('.workload').value) || 0;
+            const rate = taskThroughputs[card.dataset.taskType] || 0;
+            if (rate > 0) {
+                totalManMinutes += workload / rate;
+            }
+            currentTotalPersonnel += parseInt(card.querySelector('.personnel').value, 10) || 0;
+        });
+
+        const difference = totalHours - 8;
+        let summaryHTML = `<p class="text-lg font-bold">총 예상 소요 시간: <span class="text-blue-600">${formatHoursToHM(totalHours)}</span></p>`;
+        
+        if (difference > 0) {
+            summaryHTML += `<p class="text-sm font-medium text-red-600">기준 시간(8시간) 대비 ${formatHoursToHM(difference)} 초과</p>`;
+            const requiredPersonnel = Math.ceil((totalManMinutes / 60) / 8);
+            const additionalPersonnel = requiredPersonnel - currentTotalPersonnel;
+            if (additionalPersonnel > 0) {
+                 summaryHTML += `<p class="text-sm font-medium text-amber-600 mt-1">8시간 내 완료를 위해 <strong class="font-bold">${additionalPersonnel}명</strong>의 추가 인원이 필요합니다. (총 ${requiredPersonnel}명 권장)</p>`;
+            }
+        } else {
+            summaryHTML += `<p class="text-sm font-medium text-green-600">기준 시간(8시간)까지 ${formatHoursToHM(Math.abs(difference))} 여유</p>`;
+        }
+        summaryEl.innerHTML = summaryHTML;
+    }
     function generateCalculatorHTML() {
         const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진(피킹)' }, { id: 'warehousing', name: '제작입고' } ];
         const cardsHTML = tasks.map(task => `
