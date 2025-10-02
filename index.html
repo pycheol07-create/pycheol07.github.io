@@ -40,6 +40,7 @@
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
         details[open] summary svg { transform: rotate(180deg); }
+        .prose { white-space: pre-wrap; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -239,6 +240,24 @@
             </div>
         </div>
     </div>
+    
+    <!-- Gemini AI Report Modal -->
+    <div id="aiReportModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 modal-backdrop flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl transform transition-all flex flex-col h-[90vh]">
+            <div class="p-5 border-b flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">✨ AI 업무 계획 보고서</h3>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="aiReportContent" class="p-6 overflow-y-auto flex-grow prose">
+                <!-- AI Report will be injected here -->
+            </div>
+            <div class="bg-gray-50 px-6 py-4 flex justify-end rounded-b-lg border-t">
+                <button class="close-modal-btn bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300 btn">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </div>
 
 
 <script>
@@ -264,6 +283,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveRatesBtn = throughputModal.querySelector('#saveRatesBtn');
     const globalPersonnelInput = document.getElementById('globalPersonnel');
     const applyPersonnelBtn = document.getElementById('applyPersonnelBtn');
+    const aiReportModal = document.getElementById('aiReportModal');
+    const aiReportContent = document.getElementById('aiReportContent');
     
     // Holiday Backlog Elements
     const predictBacklogBtn = document.getElementById('predictBacklogBtn');
@@ -381,10 +402,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modal Listeners
     openPersonnelModalBtn.addEventListener('click', () => personnelModal.classList.remove('hidden'));
     openThroughputModalBtn.addEventListener('click', () => throughputModal.classList.remove('hidden'));
-    personnelModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => personnelModal.classList.add('hidden')));
+    personnelModal.querySelectorAll('.close-modal-btn, #applyPersonnelBtn').forEach(btn => btn.addEventListener('click', () => personnelModal.classList.add('hidden')));
     throughputModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => throughputModal.classList.add('hidden')));
+    aiReportModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => aiReportModal.classList.add('hidden')));
     personnelModal.addEventListener('click', (e) => e.target === personnelModal && personnelModal.classList.add('hidden'));
     throughputModal.addEventListener('click', (e) => e.target === throughputModal && throughputModal.classList.add('hidden'));
+    aiReportModal.addEventListener('click', (e) => e.target === aiReportModal && aiReportModal.classList.add('hidden'));
     
     applyPersonnelBtn.addEventListener('click', () => {
         const personnelCount = globalPersonnelInput.value;
@@ -394,7 +417,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             recalculateAllCards();
         }
-        personnelModal.classList.add('hidden');
     });
     
     globalPersonnelInput.addEventListener('keydown', (e) => {
@@ -436,6 +458,13 @@ document.addEventListener('DOMContentLoaded', () => {
     holidayEndDateInput.addEventListener('change', () => {
         promoStartDateInput.max = holidayEndDateInput.value;
         promoEndDateInput.max = holidayEndDateInput.value;
+    });
+
+    document.getElementById('calculatorWrapper').addEventListener('click', (e) => {
+        if (e.target.classList.contains('generate-ai-report')) {
+            const dayId = e.target.dataset.day;
+            generateWorkPlan(dayId);
+        }
     });
 
     // --- Core Functions ---
@@ -725,6 +754,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             summaryHTML += `<p class="text-sm font-medium text-green-600">기준 시간(8시간)까지 ${formatHoursToHM(Math.abs(difference))} 여유</p>`;
         }
+        
+        summaryHTML += `<button class="generate-ai-report mt-4 w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:from-purple-600 hover:to-indigo-700 btn text-sm" data-day="${dayId}">
+            ✨ AI 업무 계획 보고서 생성
+        </button>`;
+
         summaryEl.innerHTML = summaryHTML;
     }
 
@@ -744,6 +778,78 @@ document.addEventListener('DOMContentLoaded', () => {
         return cardsHTML + `<div class="summary-container mt-6 p-4 bg-gray-100 rounded-lg text-center"></div>`;
     }
     
+    // --- Gemini AI Function ---
+    async function generateWorkPlan(dayId) {
+        aiReportModal.classList.remove('hidden');
+        aiReportContent.innerHTML = '<div class="flex justify-center items-center h-full"><svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-4 text-gray-700">AI가 보고서를 작성하고 있습니다...</span></div>';
+
+        const date = new Date();
+        if (dayId === 'tomorrow') {
+            date.setDate(date.getDate() + 1);
+        }
+        const dateString = date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+        const container = document.getElementById(dayId);
+        const totalTimeText = container.querySelector('.summary-container .text-blue-600').textContent;
+        const statusText = (container.querySelector('.summary-container .text-red-600') || container.querySelector('.summary-container .text-green-600')).textContent;
+
+        const dateKey = (dayId === 'today') ? new Date().toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0];
+        const prediction = predictionLog[dateKey];
+
+        const systemPrompt = "당신은 온라인 여성 의류 쇼핑몰의 유능한 물류팀장입니다. 주어진 데이터를 바탕으로, 팀원들이 명확하게 이해하고 동기부여를 받을 수 있는 구체적이고 현실적인 일일 업무 계획 보고서를 작성해야 합니다. 보고서는 항상 한국어로 작성해주세요.";
+        const userQuery = `
+        아래 데이터를 바탕으로 ${dateString}의 일일 업무 계획 보고서를 작성해주세요.
+
+        **핵심 데이터:**
+        - 예측 주문량: ${prediction.orders}건
+        - 예측 배송량: ${prediction.deliveries}건
+        - 총 예상 소요 시간: ${totalTimeText}
+        - 업무 시간 상태: ${statusText}
+
+        **보고서 필수 포함 항목:**
+        1.  **아침 브리핑**: 오늘의 목표와 주요 수치를 간결하게 요약.
+        2.  **업무 배분 계획**: 배송, 직진(피킹), 제작입고 업무에 대한 인원 배분 및 시간대별 집중 업무 제안.
+        3.  **핵심 검토사항**: 예상되는 문제점(병목 현상 등)을 지적하고, 이를 해결하기 위한 구체적인 지시사항 포함.
+        4.  **마무리 메시지**: 팀의 사기를 높이는 긍정적이고 힘찬 메시지.
+
+        **작성 스타일:**
+        - 각 항목을 명확하게 구분하고, 전문적이면서도 이해하기 쉬운 톤으로 작성해주세요.
+        - 팀원들이 바로 행동에 옮길 수 있도록 지시사항은 구체적으로 제시해주세요.
+        `;
+
+        const apiKey = "";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API call failed with status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (text) {
+                aiReportContent.innerHTML = text.replace(/\n/g, '<br>');
+            } else {
+                aiReportContent.textContent = 'AI로부터 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요.';
+            }
+
+        } catch (error) {
+            console.error('Error generating AI report:', error);
+            aiReportContent.textContent = `오류가 발생했습니다: ${error.message}`;
+        }
+    }
+
+
     // --- Modal Data Handling ---
     function renderDataModal(data) { const container = document.getElementById('data-input-grid-container'); const dayNames = ['일', '월', '화', '수', '목', '금', '토']; let gridHTML = `<div class="grid grid-cols-6 gap-x-4 gap-y-2 text-sm text-center font-semibold data-grid-header py-2 border-b"> <div>날짜</div> <div>주문량</div> <div>배송량</div> <div>프로모션</div> <div>휴일</div> <div>제작입고</div> </div>`; data.forEach(d => { const date = d.date; const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; const dayName = dayNames[date.getDay()]; gridHTML += `<div class="grid grid-cols-6 gap-x-4 items-center py-2 border-b border-gray-100" data-date="${dateString}"><div class="text-center text-xs">${dateString} (${dayName})</div><div><input type="number" value="${d.orders}" class="w-full p-1.5 border rounded-md text-center"></div> <div><input type="number" value="${d.deliveries}" class="w-full p-1.5 border rounded-md text-center"></div><div class="text-center"><input type="checkbox" ${d.events.promotion ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.holiday ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.warehousing ? 'checked' : ''} class="event-checkbox h-5 w-5"></div></div>`; }); container.innerHTML = gridHTML; }
     function readDataFromModal() { const rows = document.querySelectorAll('#data-input-grid-container > div[data-date]'); return Array.from(rows).map(row => { const inputs = row.querySelectorAll('input'); return { date: new Date(row.dataset.date), orders: parseInt(inputs[0].value, 10) || 0, deliveries: parseInt(inputs[1].value, 10) || 0, events: { promotion: inputs[2].checked, holiday: inputs[3].checked, warehousing: inputs[4].checked, } }; }).sort((a, b) => b.date - a.date); }
