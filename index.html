@@ -53,15 +53,7 @@
 
         <!-- Main Content -->
         <main class="grid grid-cols-1 gap-8">
-            <!-- Top Section: Chart -->
-            <div class="card p-6">
-                <h2 class="text-xl font-semibold mb-2">데이터 시각화</h2>
-                <div class="relative h-[300px]">
-                    <canvas id="predictionChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Bottom Section: Controls & Calculator -->
+            <!-- Top Section: Controls & Calculator -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- Left Column: Controls & Predictions -->
                 <div class="card p-6">
@@ -129,6 +121,14 @@
                         <div id="today" class="tab-content active"><div class="space-y-6"></div></div>
                         <div id="tomorrow" class="tab-content"><div class="space-y-6"></div></div>
                     </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Section: Chart -->
+            <div class="card p-6">
+                <h2 class="text-xl font-semibold mb-2">데이터 시각화</h2>
+                <div class="relative h-[300px]">
+                    <canvas id="predictionChart"></canvas>
                 </div>
             </div>
         </main>
@@ -291,7 +291,14 @@ document.addEventListener('DOMContentLoaded', () => {
     runPredictionBtn.addEventListener('click', handleAnalysis);
     document.querySelectorAll('.future-event-cb').forEach(cb => cb.addEventListener('change', handleAnalysis));
     tabButtons.forEach(button => { button.addEventListener('click', () => { tabButtons.forEach(btn => btn.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active')); button.classList.add('active'); document.getElementById(button.dataset.tab).classList.add('active'); }); });
+    
     document.getElementById('calculatorWrapper').addEventListener('input', (e) => { if (e.target.classList.contains('calculator-input')) { const card = e.target.closest('.calculator-card'); if (card) calculateAndDisplayTime(card); } });
+    document.getElementById('calculatorWrapper').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.classList.contains('workload')) {
+            e.preventDefault();
+            e.target.blur();
+        }
+    });
     
     // Modal Listeners
     openPersonnelModalBtn.addEventListener('click', () => personnelModal.classList.remove('hidden'));
@@ -416,11 +423,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진(피킹)' }, { id: 'warehousing', name: '제작입고' } ];
         let inputsHTML = tasks.map(task => `<div><label class="block mb-1 text-gray-600 text-sm">${task.name}</label><input type="number" id="rate-${task.id}" class="w-full p-2 border rounded-md" value="${taskThroughputs[task.id]}"></div>`).join('');
         container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">${inputsHTML}</div>`;
-        tasks.forEach(task => {
-            document.getElementById(`rate-${task.id}`).addEventListener('keydown', e => {
+        const inputs = tasks.map(task => document.getElementById(`rate-${task.id}`));
+        inputs.forEach((input, index) => {
+            input.addEventListener('keydown', e => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    saveRatesBtn.click();
+                    const nextIndex = index + 1;
+                    if (nextIndex < inputs.length) {
+                        inputs[nextIndex].focus();
+                    } else {
+                        saveRatesBtn.focus();
+                    }
                 }
             });
         });
