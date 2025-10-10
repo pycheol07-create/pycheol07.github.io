@@ -348,29 +348,29 @@ document.addEventListener('DOMContentLoaded', () => {
         { date: "2025-10-01", orders: 997, deliveries: 1056, events: { promotion: false, holiday: false, warehousing: false } },
         { date: "2025-09-30", orders: 1047, deliveries: 1042, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-29", orders: 1029, deliveries: 1366, events: { promotion: true, holiday: false, warehousing: false } },
-        { date: "2025-09-28", orders: 960, deliveries: 657, events: { promotion: false, holiday: false, warehousing: false } },
-        { date: "2025-09-27", orders: 652, deliveries: 483, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-28", orders: 960, deliveries: 657, events: { promotion: false, holiday: true, warehousing: false } },
+        { date: "2025-09-27", orders: 652, deliveries: 483, events: { promotion: false, holiday: true, warehousing: false } },
         { date: "2025-09-26", orders: 725, deliveries: 870, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-25", orders: 931, deliveries: 948, events: { promotion: false, holiday: false, warehousing: false } },
         { date: "2025-09-24", orders: 1108, deliveries: 1230, events: { promotion: true, holiday: false, warehousing: true } },
         { date: "2025-09-23", orders: 1219, deliveries: 1359, events: { promotion: true, holiday: false, warehousing: true } },
         { date: "2025-09-22", orders: 1218, deliveries: 1263, events: { promotion: true, holiday: false, warehousing: false } },
-        { date: "2025-09-21", orders: 1085, deliveries: 708, events: { promotion: false, holiday: false, warehousing: false } },
-        { date: "2025-09-20", orders: 704, deliveries: 519, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-21", orders: 1085, deliveries: 708, events: { promotion: false, holiday: true, warehousing: false } },
+        { date: "2025-09-20", orders: 704, deliveries: 519, events: { promotion: false, holiday: true, warehousing: false } },
         { date: "2025-09-19", orders: 818, deliveries: 921, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-18", orders: 906, deliveries: 890, events: { promotion: false, holiday: false, warehousing: false } },
         { date: "2025-09-17", orders: 932, deliveries: 1076, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-16", orders: 1046, deliveries: 1007, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-15", orders: 940, deliveries: 995, events: { promotion: false, holiday: false, warehousing: false } },
-        { date: "2025-09-14", orders: 824, deliveries: 548, events: { promotion: false, holiday: false, warehousing: false } },
-        { date: "2025-09-13", orders: 554, deliveries: 371, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-14", orders: 824, deliveries: 548, events: { promotion: false, holiday: true, warehousing: false } },
+        { date: "2025-09-13", orders: 554, deliveries: 371, events: { promotion: false, holiday: true, warehousing: false } },
         { date: "2025-09-12", orders: 559, deliveries: 707, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-11", orders: 805, deliveries: 925, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-10", orders: 867, deliveries: 850, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-09", orders: 963, deliveries: 861, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-08", orders: 813, deliveries: 900, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-07", orders: 708, deliveries: 507, events: { promotion: false, holiday: false, warehousing: false } },
-        { date: "2025-09-06", orders: 515, deliveries: 408, events: { promotion: false, holiday: false, warehousing: false } },
+        { date: "2025-09-07", orders: 708, deliveries: 507, events: { promotion: false, holiday: true, warehousing: false } },
+        { date: "2025-09-06", orders: 515, deliveries: 408, events: { promotion: false, holiday: true, warehousing: false } },
         { date: "2025-09-05", orders: 569, deliveries: 582, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-04", orders: 653, deliveries: 722, events: { promotion: false, holiday: false, warehousing: true } },
         { date: "2025-09-03", orders: 777, deliveries: 819, events: { promotion: false, holiday: false, warehousing: false } }
@@ -415,19 +415,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('calculatorWrapper').addEventListener('input', (e) => { if (e.target.classList.contains('calculator-input')) { const card = e.target.closest('.calculator-card'); if (card) calculateAndDisplayTime(card); } });
     
-    document.getElementById('calculatorWrapper').addEventListener('blur', (e) => {
-        if (e.target.classList.contains('workload')) {
-            const card = e.target.closest('.calculator-card');
-            if (card) {
-                const taskType = card.dataset.taskType;
-                if (taskType === 'forwarding' || taskType === 'warehousing') {
-                    // This feature was removed per user request.
-                    // saveLastWorkload(taskType, e.target.value);
-                }
-            }
-        }
-    }, true);
-
     document.getElementById('calculatorWrapper').addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && e.target.classList.contains('workload')) {
             e.preventDefault();
@@ -569,7 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
         runPredictionBtn.disabled = true; runPredictionBtnSpinner.classList.remove('hidden'); runPredictionBtnText.textContent = '예측 중...';
         setTimeout(() => {
             if (historicalData.length < 7) { alert('최소 7일 이상의 데이터가 필요합니다.'); runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행'; return; }
-            const today = new Date(); const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); const futureEvents = getFutureEvents(); const todayPrediction = predict(historicalData, today, futureEvents.today); const tomorrowPrediction = predict(historicalData, tomorrow, futureEvents.tomorrow, todayPrediction);
+            const today = new Date(); const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); const futureEvents = getFutureEvents(); const todayPrediction = predict(historicalData, today, futureEvents.today); const tomorrowPrediction = predict(historicalData, tomorrow, futureEvents.tomorrow, todayPrediction, futureEvents.today);
             predictionLog[today.toISOString().split('T')[0]] = todayPrediction; predictionLog[tomorrow.toISOString().split('T')[0]] = tomorrowPrediction;
             displayPredictionResults(todayPrediction, tomorrowPrediction); displayModelAccuracy(); updateCalculators(todayPrediction, tomorrowPrediction); renderChart(historicalData, todayPrediction, tomorrowPrediction);
             runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행';
@@ -633,7 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function learnFromNewData(newDataArray) { newDataArray.forEach(actual => { const dateString = actual.date.toISOString().split('T')[0]; if (predictionLog[dateString] && (actual.orders > 0 || actual.deliveries > 0)) { const prediction = predictionLog[dateString]; updateAdjustmentFactors(prediction, actual); delete predictionLog[dateString]; } }); }
     function updateAdjustmentFactors(prediction, actual) { const targetDay = actual.date.getDay(); if (prediction.orders === 0 || prediction.deliveries === 0) return; const orderRatio = actual.orders / prediction.orders; const deliveryRatio = actual.deliveries / prediction.deliveries; let oldOrderFactor = adjustmentFactors.dayOfWeek[targetDay].orders; let oldDeliveryFactor = adjustmentFactors.dayOfWeek[targetDay].deliveries; adjustmentFactors.dayOfWeek[targetDay].orders = oldOrderFactor * (1 - LEARNING_RATE) + orderRatio * LEARNING_RATE; adjustmentFactors.dayOfWeek[targetDay].deliveries = oldDeliveryFactor * (1 - LEARNING_RATE) + deliveryRatio * LEARNING_RATE; }
     
-    function predict(data, targetDate, futureEvents, todayPrediction = null) {
+    function predict(data, targetDate, futureEvents, todayPrediction = null, todayEvents = null) {
         const targetDay = targetDate.getDay();
         const relevantOrderDaysData = data.filter(d => d.date.getDay() === targetDay);
         const orderBaseSource = (relevantOrderDaysData.length > 0 ? relevantOrderDaysData : data.slice(-7)).sort((a,b) => b.date - a.date);
@@ -645,23 +632,47 @@ document.addEventListener('DOMContentLoaded', () => {
         if (futureEvents.holiday) { predictedOrders *= multipliers.holiday.orders; }
         if (futureEvents.warehousing) { predictedOrders *= multipliers.warehousing.orders; }
         predictedOrders *= adjustmentFactors.dayOfWeek[targetDay].orders;
-        let previousDayOrders;
-        if (todayPrediction) {
-            previousDayOrders = todayPrediction.orders;
-        } else {
-            const yesterday = new Date(targetDate);
-            yesterday.setDate(targetDate.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().split('T')[0];
-            const yesterdayData = data.find(d => d.date.toISOString().split('T')[0] === yesterdayStr);
-            previousDayOrders = yesterdayData ? yesterdayData.orders : data[0].orders;
-        }
         
-        const deliveryRatio = calculateDeliveryRatio(data);
-        let predictedDeliveries = previousDayOrders * deliveryRatio;
-        if (futureEvents.promotion) { predictedDeliveries *= multipliers.promotion.deliveries; }
-        if (futureEvents.holiday) { predictedDeliveries *= multipliers.holiday.deliveries; }
-        if (futureEvents.warehousing) { predictedDeliveries *= multipliers.warehousing.deliveries; }
-        predictedDeliveries *= adjustmentFactors.dayOfWeek[targetDay].deliveries;
+        let predictedDeliveries;
+        if (futureEvents.holiday) {
+            predictedDeliveries = 0; // Holidays have no deliveries
+        } else {
+            let accumulatedOrders = 0;
+            let currentDate = new Date(targetDate);
+            
+            for (let i = 1; i <= data.length; i++) {
+                currentDate.setDate(currentDate.getDate() - 1);
+                const currentDateStr = currentDate.toISOString().split('T')[0];
+
+                if (todayPrediction && i === 1) {
+                    accumulatedOrders += todayPrediction.orders;
+                    if (todayEvents && !todayEvents.holiday) {
+                        break;
+                    }
+                    continue; 
+                }
+                
+                const pastDayData = data.find(d => d.date.toISOString().split('T')[0] === currentDateStr);
+                if (pastDayData) {
+                    accumulatedOrders += pastDayData.orders;
+                    if (!pastDayData.events.holiday) {
+                        break;
+                    }
+                } else {
+                    if (i === 1) {
+                        accumulatedOrders = todayPrediction ? todayPrediction.orders : data[0].orders;
+                    }
+                    break;
+                }
+            }
+
+            const deliveryRatio = calculateDeliveryRatio(data);
+            predictedDeliveries = accumulatedOrders * deliveryRatio;
+            
+            if (futureEvents.promotion) { predictedDeliveries *= multipliers.promotion.deliveries; }
+            if (futureEvents.warehousing) { predictedDeliveries *= multipliers.warehousing.deliveries; }
+            predictedDeliveries *= adjustmentFactors.dayOfWeek[targetDay].deliveries;
+        }
 
         return { date: targetDate, orders: Math.round(predictedOrders), deliveries: Math.round(predictedDeliveries) };
     }
@@ -670,9 +681,17 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalWeightedRatio = 0, totalWeight = 0;
         for (let i = 0; i < data.length - 1; i++) {
             const deliveryDayData = data[i];
-            const orderDayData = data[i + 1];
-            if (orderDayData.orders > 0) {
-                const ratio = deliveryDayData.deliveries / orderDayData.orders;
+            if (deliveryDayData.events.holiday || deliveryDayData.deliveries === 0) continue;
+
+            let accumulatedOrders = 0;
+            for (let j = i + 1; j < data.length; j++) {
+                const orderDayData = data[j];
+                accumulatedOrders += orderDayData.orders;
+                if (!orderDayData.events.holiday) break;
+            }
+
+            if (accumulatedOrders > 0) {
+                const ratio = deliveryDayData.deliveries / accumulatedOrders;
                 const weight = data.length - i;
                 totalWeightedRatio += ratio * weight;
                 totalWeight += weight;
@@ -729,8 +748,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatHoursToHM(decimalHours) { if (isNaN(decimalHours) || decimalHours < 0) { return '0시간 0분'; } const totalMinutes = Math.round(decimalHours * 60); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${hours}시간 ${minutes}분`; }
 
     // --- Data Persistence ---
-    function loadLastWorkloads() { /* This feature was removed per user request. */ }
-    function saveLastWorkload() { /* This feature was removed per user request. */ }
     function loadThroughputs() { const saved = localStorage.getItem('taskThroughputs'); taskThroughputs = saved ? JSON.parse(saved) : { delivery: 5, forwarding: 5, warehousing: 5 }; }
     function saveThroughputs() { localStorage.setItem('taskThroughputs', JSON.stringify(taskThroughputs)); }
     function loadHistoricalData() {
