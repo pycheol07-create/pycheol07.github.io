@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>업무량 예측.계획 프로그램</title>
+    <title>업무예측 프로그램</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js CDN -->
@@ -41,6 +41,15 @@
         details > summary::-webkit-details-marker { display: none; }
         details[open] summary svg { transform: rotate(180deg); }
         .prose { white-space: pre-wrap; }
+        .toast {
+            opacity: 0;
+            transform: translateX(calc(100% + 1.25rem)); /* 1.25rem is right-5 */
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -52,10 +61,18 @@
 
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <!-- Header -->
-        <header class="text-center mb-10">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">업무량 예측.계획 프로그램</h1>
+        <header class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">업무예측 프로그램</h1>
             <p class="mt-2 text-md text-gray-600">과거 데이터를 기반으로 미래 수요를 예측하고 효율적인 인력 운영 계획을 수립하세요.</p>
         </header>
+
+        <!-- Team Sync Section -->
+        <div class="card p-4 mb-8">
+             <div class="flex items-center justify-center">
+                 <p id="connectionStatus" class="text-sm font-semibold text-gray-600 h-4"></p>
+             </div>
+        </div>
+
 
         <!-- Main Content -->
         <main class="grid grid-cols-1 gap-8">
@@ -290,479 +307,635 @@
             </div>
         </div>
     </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
-    const predictionResultDiv = document.getElementById('predictionResult');
-    const modelAccuracyDiv = document.getElementById('modelAccuracy');
-    const todayTabContent = document.querySelector('#today .space-y-6');
-    const tomorrowTabContent = document.querySelector('#tomorrow .space-y-6');
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const ctx = document.getElementById('predictionChart').getContext('2d');
-    const openDataModalBtn = document.getElementById('openDataModalBtn');
-    const closeDataModalBtn = document.getElementById('closeDataModalBtn');
-    const dataModal = document.getElementById('dataModal');
-    const applyDataBtn = document.getElementById('applyDataBtn');
-    const runPredictionBtn = document.getElementById('runPredictionBtn');
-    const runPredictionBtnSpinner = runPredictionBtn.querySelector('svg');
-    const runPredictionBtnText = runPredictionBtn.querySelector('.btn-text');
-    const openPersonnelModalBtn = document.getElementById('openPersonnelModalBtn');
-    const openThroughputModalBtn = document.getElementById('openThroughputModalBtn');
-    const personnelModal = document.getElementById('personnelModal');
-    const throughputModal = document.getElementById('throughputModal');
-    const saveRatesBtn = throughputModal.querySelector('#saveRatesBtn');
-    const globalPersonnelInput = document.getElementById('globalPersonnel');
-    const applyPersonnelBtn = document.getElementById('applyPersonnelBtn');
-    const aiReportModal = document.getElementById('aiReportModal');
-    const aiReportContent = document.getElementById('aiReportContent');
     
-    // Data Modal Filter
-    const dataFilterMonth = document.getElementById('dataFilterMonth');
-    const filterDataBtn = document.getElementById('filterDataBtn');
-    const resetFilterBtn = document.getElementById('resetFilterBtn');
-    const openAiAnalysisBtn = document.getElementById('openAiAnalysisBtn');
-    const aiAnalysisModal = document.getElementById('aiAnalysisModal');
-    const aiAnalysisContent = document.getElementById('aiAnalysisContent');
-
-    // Holiday Backlog Elements
-    const predictBacklogBtn = document.getElementById('predictBacklogBtn');
-    const holidayStartDateInput = document.getElementById('holidayStartDate');
-    const holidayEndDateInput = document.getElementById('holidayEndDate');
-    const backlogResultDiv = document.getElementById('backlogResultDiv');
-    const runHolidayPromotionCheckbox = document.getElementById('runHolidayPromotion');
-    const holidayPromotionSettingsDetails = document.getElementById('holidayPromotionSettingsDetails');
-    const promoStartDateInput = document.getElementById('promoStartDate');
-    const promoEndDateInput = document.getElementById('promoEndDate');
-    const promoIncreaseRateInput = document.getElementById('promoIncreaseRate');
-
-
-    let predictionChart;
-    let historicalData = [];
-    let predictionLog = {};
-    let adjustmentFactors = {};
-    let taskThroughputs = {};
-    const LEARNING_RATE = 0.1;
-
-    const defaultHistoricalData = [
-        { date: "2025-10-01", orders: 997, deliveries: 1056, events: { promotion: false, holiday: false, warehousing: false } },
-        { date: "2025-09-30", orders: 1047, deliveries: 1042, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-29", orders: 1029, deliveries: 1366, events: { promotion: true, holiday: false, warehousing: false } },
-        { date: "2025-09-28", orders: 960, deliveries: 657, events: { promotion: false, holiday: true, warehousing: false } },
-        { date: "2025-09-27", orders: 652, deliveries: 483, events: { promotion: false, holiday: true, warehousing: false } },
-        { date: "2025-09-26", orders: 725, deliveries: 870, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-25", orders: 931, deliveries: 948, events: { promotion: false, holiday: false, warehousing: false } },
-        { date: "2025-09-24", orders: 1108, deliveries: 1230, events: { promotion: true, holiday: false, warehousing: true } },
-        { date: "2025-09-23", orders: 1219, deliveries: 1359, events: { promotion: true, holiday: false, warehousing: true } },
-        { date: "2025-09-22", orders: 1218, deliveries: 1263, events: { promotion: true, holiday: false, warehousing: false } },
-        { date: "2025-09-21", orders: 1085, deliveries: 708, events: { promotion: false, holiday: true, warehousing: false } },
-        { date: "2025-09-20", orders: 704, deliveries: 519, events: { promotion: false, holiday: true, warehousing: false } },
-        { date: "2025-09-19", orders: 818, deliveries: 921, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-18", orders: 906, deliveries: 890, events: { promotion: false, holiday: false, warehousing: false } },
-        { date: "2025-09-17", orders: 932, deliveries: 1076, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-16", orders: 1046, deliveries: 1007, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-15", orders: 940, deliveries: 995, events: { promotion: false, holiday: false, warehousing: false } },
-        { date: "2025-09-14", orders: 824, deliveries: 548, events: { promotion: false, holiday: true, warehousing: false } },
-        { date: "2025-09-13", orders: 554, deliveries: 371, events: { promotion: false, holiday: true, warehousing: false } },
-        { date: "2025-09-12", orders: 559, deliveries: 707, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-11", orders: 805, deliveries: 925, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-10", orders: 867, deliveries: 850, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-09", orders: 963, deliveries: 861, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-08", orders: 813, deliveries: 900, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-07", orders: 708, deliveries: 507, events: { promotion: false, holiday: true, warehousing: false } },
-        { date: "2025-09-06", orders: 515, deliveries: 408, events: { promotion: false, holiday: true, warehousing: false } },
-        { date: "2025-09-05", orders: 569, deliveries: 582, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-04", orders: 653, deliveries: 722, events: { promotion: false, holiday: false, warehousing: true } },
-        { date: "2025-09-03", orders: 777, deliveries: 819, events: { promotion: false, holiday: false, warehousing: false } }
-    ];
-
-    // --- Initial Setup ---
-    function initialize() {
-        loadHistoricalData();
-        addNewDateRows();
-        loadThroughputs();
-        loadHolidaySettings();
-        renderThroughputSettings();
-        initializeAdjustmentFactors();
-        todayTabContent.innerHTML = generateCalculatorHTML('today');
-        tomorrowTabContent.innerHTML = generateCalculatorHTML('tomorrow');
-        handleAnalysis();
-    }
+    <!-- Toast Notification -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-[100] space-y-2 w-full max-w-xs"></div>
     
-    function addNewDateRows() {
-        if (!historicalData || historicalData.length === 0) return;
-        const today = new Date();
-        const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        let lastDate = new Date(historicalData[0].date);
-        while (lastDate < todayDateOnly) {
-            lastDate.setDate(lastDate.getDate() + 1);
-            historicalData.unshift({ date: new Date(lastDate), orders: 0, deliveries: 0, events: { promotion: false, holiday: false, warehousing: false } });
-        }
-    }
-    
-    function initializeAdjustmentFactors() {
-        adjustmentFactors.dayOfWeek = Array(7).fill(null).map(() => ({ orders: 1.0, deliveries: 1.0 }));
-    }
-
-    // --- Event Listeners ---
-    openDataModalBtn.addEventListener('click', () => { renderDataModal(); dataModal.classList.remove('hidden'); });
-    closeDataModalBtn.addEventListener('click', () => dataModal.classList.add('hidden'));
-    dataModal.addEventListener('click', (e) => e.target === dataModal && dataModal.classList.add('hidden'));
-    applyDataBtn.addEventListener('click', () => { const newDataArray = readDataFromModal(); learnFromNewData(newDataArray); historicalData = newDataArray; saveHistoricalData(); handleAnalysis(); dataModal.classList.add('hidden'); });
-    runPredictionBtn.addEventListener('click', handleAnalysis);
-    document.querySelectorAll('.future-event-cb').forEach(cb => cb.addEventListener('change', handleAnalysis));
-    tabButtons.forEach(button => { button.addEventListener('click', () => { tabButtons.forEach(btn => btn.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active')); button.classList.add('active'); document.getElementById(button.dataset.tab).classList.add('active'); }); });
-    
-    document.getElementById('calculatorWrapper').addEventListener('input', (e) => { if (e.target.classList.contains('calculator-input')) { const card = e.target.closest('.calculator-card'); if (card) calculateAndDisplayTime(card); } });
-    
-    document.getElementById('calculatorWrapper').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && e.target.classList.contains('workload')) {
-            e.preventDefault();
-            e.target.blur();
-        }
-    });
-    
-    // Modal Listeners
-    openPersonnelModalBtn.addEventListener('click', () => personnelModal.classList.remove('hidden'));
-    openThroughputModalBtn.addEventListener('click', () => throughputModal.classList.remove('hidden'));
-    personnelModal.querySelectorAll('.close-modal-btn, #applyPersonnelBtn').forEach(btn => btn.addEventListener('click', () => personnelModal.classList.add('hidden')));
-    throughputModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => throughputModal.classList.add('hidden')));
-    aiReportModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => aiReportModal.classList.add('hidden')));
-    aiAnalysisModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => aiAnalysisModal.classList.add('hidden')));
-    personnelModal.addEventListener('click', (e) => e.target === personnelModal && personnelModal.classList.add('hidden'));
-    throughputModal.addEventListener('click', (e) => e.target === throughputModal && throughputModal.classList.add('hidden'));
-    aiReportModal.addEventListener('click', (e) => e.target === aiReportModal && aiReportModal.classList.add('hidden'));
-    aiAnalysisModal.addEventListener('click', (e) => e.target === aiAnalysisModal && aiAnalysisModal.classList.add('hidden'));
-
-    
-    applyPersonnelBtn.addEventListener('click', () => {
-        const personnelCount = globalPersonnelInput.value;
-        if (personnelCount >= 1) {
-            document.querySelectorAll('.calculator-card .personnel').forEach(input => {
-                input.value = personnelCount;
-            });
-            recalculateAllCards();
-        }
-    });
-    
-    globalPersonnelInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            applyPersonnelBtn.click();
-        }
-    });
-
-    saveRatesBtn.addEventListener('click', () => {
-        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진배송' }, { id: 'warehousing', name: '제작입고' } ];
-        tasks.forEach(task => {
-            taskThroughputs[task.id] = parseFloat(document.getElementById(`rate-${task.id}`).value) || 0;
-        });
-        saveThroughputs();
-        alert('처리량 설정이 저장되었습니다.');
-        recalculateAllCards();
-        throughputModal.classList.add('hidden');
-    });
-
-    // Data Modal Filter Listeners
-    filterDataBtn.addEventListener('click', () => {
-        const [year, month] = dataFilterMonth.value.split('-');
-        if (year && month) {
-            const filteredData = historicalData.filter(d => {
-                return d.date.getFullYear() === parseInt(year) && (d.date.getMonth() + 1) === parseInt(month);
-            });
-            renderDataModal(filteredData);
-        }
-    });
-    resetFilterBtn.addEventListener('click', () => {
-        renderDataModal();
-    });
-    openAiAnalysisBtn.addEventListener('click', generateAdvancedAnalysis);
-
-
-    // Holiday Backlog Listeners
-    predictBacklogBtn.addEventListener('click', () => {
-        handleBacklogPrediction();
-        holidayPromotionSettingsDetails.open = false;
-    });
-
-    runHolidayPromotionCheckbox.addEventListener('change', (e) => {
-        holidayPromotionSettingsDetails.classList.toggle('hidden', !e.target.checked);
-        if (e.target.checked) {
-            const avgRate = getAveragePromotionIncrease();
-            promoIncreaseRateInput.value = avgRate;
-            holidayPromotionSettingsDetails.open = true;
-        }
-    });
-    holidayStartDateInput.addEventListener('change', () => {
-        promoStartDateInput.min = holidayStartDateInput.value;
-        if(holidayEndDateInput.value) promoEndDateInput.min = holidayStartDateInput.value;
-    });
-    holidayEndDateInput.addEventListener('change', () => {
-        promoStartDateInput.max = holidayEndDateInput.value;
-        promoEndDateInput.max = holidayEndDateInput.value;
-    });
-
-    document.getElementById('calculatorWrapper').addEventListener('click', (e) => {
-        if (e.target.classList.contains('generate-ai-report')) {
-            const dayId = e.target.dataset.day;
-            generateWorkPlan(dayId);
-        }
-    });
-
-    // --- Pull to Refresh ---
-    const ptrIndicator = document.getElementById('ptr-indicator');
-    let touchStartY = 0;
-    const ptrThreshold = 80;
-
-    document.addEventListener('touchstart', (e) => {
-        if (window.scrollY === 0) {
-            touchStartY = e.touches[0].clientY;
-        } else {
-            touchStartY = -1;
-        }
-    }, { passive: true });
-
-    document.addEventListener('touchmove', (e) => {
-        if (touchStartY === -1) return;
-
-        const touchY = e.touches[0].clientY;
-        const pullDistance = touchY - touchStartY;
-
-        if (pullDistance > 0) {
-            ptrIndicator.style.opacity = Math.min(pullDistance / ptrThreshold, 1).toString();
-            const rotation = Math.min(pullDistance, ptrThreshold) * 2;
-            ptrIndicator.querySelector('svg').style.transform = `rotate(${rotation}deg)`;
-        }
-    }, { passive: true });
-
-    document.addEventListener('touchend', (e) => {
-        if (touchStartY === -1) return;
-
-        const touchY = e.changedTouches[0].clientY;
-        const pullDistance = touchY - touchStartY;
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         
-        ptrIndicator.style.opacity = '0';
-        ptrIndicator.querySelector('svg').style.transform = 'rotate(0deg)';
+        // --- DOM Elements ---
+        const predictionResultDiv = document.getElementById('predictionResult');
+        const modelAccuracyDiv = document.getElementById('modelAccuracy');
+        const todayTabContent = document.querySelector('#today .space-y-6');
+        const tomorrowTabContent = document.querySelector('#tomorrow .space-y-6');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const ctx = document.getElementById('predictionChart').getContext('2d');
+        const openDataModalBtn = document.getElementById('openDataModalBtn');
+        const closeDataModalBtn = document.getElementById('closeDataModalBtn');
+        const dataModal = document.getElementById('dataModal');
+        const applyDataBtn = document.getElementById('applyDataBtn');
+        const runPredictionBtn = document.getElementById('runPredictionBtn');
+        const runPredictionBtnSpinner = runPredictionBtn.querySelector('svg');
+        const runPredictionBtnText = runPredictionBtn.querySelector('.btn-text');
+        const openPersonnelModalBtn = document.getElementById('openPersonnelModalBtn');
+        const openThroughputModalBtn = document.getElementById('openThroughputModalBtn');
+        const personnelModal = document.getElementById('personnelModal');
+        const throughputModal = document.getElementById('throughputModal');
+        const saveRatesBtn = throughputModal.querySelector('#saveRatesBtn');
+        const globalPersonnelInput = document.getElementById('globalPersonnel');
+        const applyPersonnelBtn = document.getElementById('applyPersonnelBtn');
+        const aiReportModal = document.getElementById('aiReportModal');
+        const aiReportContent = document.getElementById('aiReportContent');
+        const connectionStatus = document.getElementById('connectionStatus');
+        
+        // Data Modal Filter
+        const dataFilterMonth = document.getElementById('dataFilterMonth');
+        const filterDataBtn = document.getElementById('filterDataBtn');
+        const resetFilterBtn = document.getElementById('resetFilterBtn');
+        const openAiAnalysisBtn = document.getElementById('openAiAnalysisBtn');
+        const aiAnalysisModal = document.getElementById('aiAnalysisModal');
+        const aiAnalysisContent = document.getElementById('aiAnalysisContent');
 
-        if (pullDistance > ptrThreshold) {
-            window.location.reload();
-        }
-        
-        touchStartY = 0;
-    });
+        // Holiday Backlog Elements
+        const predictBacklogBtn = document.getElementById('predictBacklogBtn');
+        const holidayStartDateInput = document.getElementById('holidayStartDate');
+        const holidayEndDateInput = document.getElementById('holidayEndDate');
+        const backlogResultDiv = document.getElementById('backlogResultDiv');
+        const runHolidayPromotionCheckbox = document.getElementById('runHolidayPromotion');
+        const holidayPromotionSettingsDetails = document.getElementById('holidayPromotionSettingsDetails');
+        const promoStartDateInput = document.getElementById('promoStartDate');
+        const promoEndDateInput = document.getElementById('promoEndDate');
+        const promoIncreaseRateInput = document.getElementById('promoIncreaseRate');
 
-    // --- Core Functions ---
-    function handleAnalysis() {
-        runPredictionBtn.disabled = true; runPredictionBtnSpinner.classList.remove('hidden'); runPredictionBtnText.textContent = '예측 중...';
-        setTimeout(() => {
-            if (historicalData.length < 7) { alert('최소 7일 이상의 데이터가 필요합니다.'); runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행'; return; }
-            const today = new Date(); const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); const futureEvents = getFutureEvents(); const todayPrediction = predict(historicalData, today, futureEvents.today); const tomorrowPrediction = predict(historicalData, tomorrow, futureEvents.tomorrow, todayPrediction, futureEvents.today);
-            predictionLog[today.toISOString().split('T')[0]] = todayPrediction; predictionLog[tomorrow.toISOString().split('T')[0]] = tomorrowPrediction;
-            displayPredictionResults(todayPrediction, tomorrowPrediction); displayModelAccuracy(); updateCalculators(todayPrediction, tomorrowPrediction); renderChart(historicalData, todayPrediction, tomorrowPrediction);
-            runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행';
-        }, 500);
-    }
-    
-    function handleBacklogPrediction() {
-        const startDate = holidayStartDateInput.value;
-        const endDate = holidayEndDateInput.value;
-        if (!startDate || !endDate) { alert('연휴 시작일과 종료일을 모두 선택해주세요.'); return; }
-        const start = new Date(startDate); const end = new Date(endDate);
-        if (start > end) { alert('종료일은 시작일보다 빠를 수 없습니다.'); return; }
-        
-        start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
-        end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
+        // --- Firebase Variables ---
+        let db, auth;
+        let currentAppId = null;
+        let unsubscribe; // To detach the real-time listener
 
-        const runPromo = runHolidayPromotionCheckbox.checked;
-        const promoStart = runPromo ? new Date(promoStartDateInput.value) : null;
-        const promoEnd = runPromo ? new Date(promoEndDateInput.value) : null;
-        const promoRate = runPromo ? (parseFloat(promoIncreaseRateInput.value) || 0) / 100 : 0;
-        
-        if(runPromo && (promoStart > promoEnd || !promoStartDateInput.value || !promoEndDateInput.value)) {
-             alert('프로모션 기간을 올바르게 설정해주세요.');
-             return;
-        }
+        // --- State Variables ---
+        let predictionChart;
+        let historicalData = [];
+        let predictionLog = {};
+        let adjustmentFactors = {};
+        let taskThroughputs = {};
+        const LEARNING_RATE = 0.1;
 
-        if(runPromo) {
-             promoStart.setMinutes(promoStart.getMinutes() + promoStart.getTimezoneOffset());
-             promoEnd.setMinutes(promoEnd.getMinutes() + promoEnd.getTimezoneOffset());
-        }
+        // --- Default Data (if localStorage is empty) ---
+        const defaultHistoricalData = [
+            { date: "2025-10-01", orders: 997, deliveries: 1056, events: { promotion: false, holiday: false, warehousing: false } },
+            { date: "2025-09-30", orders: 1047, deliveries: 1042, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-29", orders: 1029, deliveries: 1366, events: { promotion: true, holiday: false, warehousing: false } },
+            { date: "2025-09-28", orders: 960, deliveries: 657, events: { promotion: false, holiday: true, warehousing: false } },
+            { date: "2025-09-27", orders: 652, deliveries: 483, events: { promotion: false, holiday: true, warehousing: false } },
+            { date: "2025-09-26", orders: 725, deliveries: 870, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-25", orders: 931, deliveries: 948, events: { promotion: false, holiday: false, warehousing: false } },
+            { date: "2025-09-24", orders: 1108, deliveries: 1230, events: { promotion: true, holiday: false, warehousing: true } },
+            { date: "2025-09-23", orders: 1219, deliveries: 1359, events: { promotion: true, holiday: false, warehousing: true } },
+            { date: "2025-09-22", orders: 1218, deliveries: 1263, events: { promotion: true, holiday: false, warehousing: false } },
+            { date: "2025-09-21", orders: 1085, deliveries: 708, events: { promotion: false, holiday: true, warehousing: false } },
+            { date: "2025-09-20", orders: 704, deliveries: 519, events: { promotion: false, holiday: true, warehousing: false } },
+            { date: "2025-09-19", orders: 818, deliveries: 921, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-18", orders: 906, deliveries: 890, events: { promotion: false, holiday: false, warehousing: false } },
+            { date: "2025-09-17", orders: 932, deliveries: 1076, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-16", orders: 1046, deliveries: 1007, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-15", orders: 940, deliveries: 995, events: { promotion: false, holiday: false, warehousing: false } },
+            { date: "2025-09-14", orders: 824, deliveries: 548, events: { promotion: false, holiday: true, warehousing: false } },
+            { date: "2025-09-13", orders: 554, deliveries: 371, events: { promotion: false, holiday: true, warehousing: false } },
+            { date: "2025-09-12", orders: 559, deliveries: 707, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-11", orders: 805, deliveries: 925, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-10", orders: 867, deliveries: 850, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-09", orders: 963, deliveries: 861, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-08", orders: 813, deliveries: 900, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-07", orders: 708, deliveries: 507, events: { promotion: false, holiday: true, warehousing: false } },
+            { date: "2025-09-06", orders: 515, deliveries: 408, events: { promotion: false, holiday: true, warehousing: false } },
+            { date: "2025-09-05", orders: 569, deliveries: 582, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-04", orders: 653, deliveries: 722, events: { promotion: false, holiday: false, warehousing: true } },
+            { date: "2025-09-03", orders: 777, deliveries: 819, events: { promotion: false, holiday: false, warehousing: false } }
+        ];
 
-        let totalBacklogOrders = 0;
-        
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const isPromoDay = runPromo && d >= promoStart && d <= promoEnd;
-            const holidayEvents = { promotion: isPromoDay, holiday: true, warehousing: false };
-            let holidayPrediction = predict(historicalData, new Date(d), holidayEvents);
-            if(isPromoDay) {
-                holidayPrediction.orders *= (1 + promoRate);
-            }
-            totalBacklogOrders += holidayPrediction.orders;
-        }
-        
-        let firstWorkDay = new Date(end);
-        firstWorkDay.setDate(firstWorkDay.getDate() + 1);
-        const firstWorkDayPrediction = predict(historicalData, firstWorkDay, { promotion: false, holiday: false, warehousing: false });
-        const normalOrders = firstWorkDayPrediction.orders;
-        const totalOrders = normalOrders + Math.round(totalBacklogOrders);
-        
-        backlogResultDiv.innerHTML = `
-            <div class="p-3 bg-teal-50 text-teal-800 rounded-lg border border-teal-200">
-                <p class="font-semibold">연휴 이후 첫 근무일(${firstWorkDay.toLocaleDateString()}) 예상:</p>
-                <p class="mt-1"><strong>총 예상 주문량: ${totalOrders}건</strong></p>
-                <p class="text-xs">(기본 ${normalOrders}건 + 연휴 누적 ${Math.round(totalBacklogOrders)}건)</p>
-            </div>
-        `;
-        saveHolidaySettings();
-    }
-
-    // --- Learning & Prediction ---
-    function learnFromNewData(newDataArray) { newDataArray.forEach(actual => { const dateString = actual.date.toISOString().split('T')[0]; if (predictionLog[dateString] && (actual.orders > 0 || actual.deliveries > 0)) { const prediction = predictionLog[dateString]; updateAdjustmentFactors(prediction, actual); delete predictionLog[dateString]; } }); }
-    function updateAdjustmentFactors(prediction, actual) { const targetDay = actual.date.getDay(); if (prediction.orders === 0 || prediction.deliveries === 0) return; const orderRatio = actual.orders / prediction.orders; const deliveryRatio = actual.deliveries / prediction.deliveries; let oldOrderFactor = adjustmentFactors.dayOfWeek[targetDay].orders; let oldDeliveryFactor = adjustmentFactors.dayOfWeek[targetDay].deliveries; adjustmentFactors.dayOfWeek[targetDay].orders = oldOrderFactor * (1 - LEARNING_RATE) + orderRatio * LEARNING_RATE; adjustmentFactors.dayOfWeek[targetDay].deliveries = oldDeliveryFactor * (1 - LEARNING_RATE) + deliveryRatio * LEARNING_RATE; }
-    
-    function predict(data, targetDate, futureEvents, todayPrediction = null, todayEvents = null) {
-        const targetDay = targetDate.getDay();
-        const relevantOrderDaysData = data.filter(d => d.date.getDay() === targetDay);
-        const orderBaseSource = (relevantOrderDaysData.length > 0 ? relevantOrderDaysData : data.slice(-7)).sort((a,b) => b.date - a.date);
-        let weightedOrderSum = 0, orderTotalWeight = 0;
-        orderBaseSource.forEach((d, i) => { const weight = orderBaseSource.length - i; weightedOrderSum += d.orders * weight; orderTotalWeight += weight; });
-        let predictedOrders = orderTotalWeight > 0 ? weightedOrderSum / orderTotalWeight : 0;
-        const multipliers = { promotion: calculateMultiplier(data, 'promotion'), holiday: calculateMultiplier(data, 'holiday'), warehousing: calculateMultiplier(data, 'warehousing') };
-        if (futureEvents.promotion) { predictedOrders *= multipliers.promotion.orders; }
-        if (futureEvents.holiday) { predictedOrders *= multipliers.holiday.orders; }
-        if (futureEvents.warehousing) { predictedOrders *= multipliers.warehousing.orders; }
-        predictedOrders *= adjustmentFactors.dayOfWeek[targetDay].orders;
-        
-        let predictedDeliveries;
-        if (futureEvents.holiday) {
-            predictedDeliveries = 0; // Holidays have no deliveries
-        } else {
-            let accumulatedOrders = 0;
-            let currentDate = new Date(targetDate);
+        // --- Toast Notification ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
             
-            for (let i = 1; i <= data.length; i++) {
-                currentDate.setDate(currentDate.getDate() - 1);
-                const currentDateStr = currentDate.toISOString().split('T')[0];
+            const styleMap = {
+                success: 'bg-green-500 text-white',
+                error: 'bg-red-500 text-white',
+                info: 'bg-blue-500 text-white'
+            };
 
-                if (todayPrediction && i === 1) {
-                    accumulatedOrders += todayPrediction.orders;
-                    if (todayEvents && !todayEvents.holiday) {
-                        break;
-                    }
-                    continue; 
+            toast.className = `toast p-4 rounded-lg shadow-xl ${styleMap[type] || styleMap.info}`;
+            toast.textContent = message;
+            
+            container.prepend(toast);
+
+            requestAnimationFrame(() => {
+                 toast.classList.add('show');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+            }, 3000);
+        }
+
+        // --- Initial Setup ---
+        function initializeUI() {
+            // This function initializes UI components that don't depend on data
+            todayTabContent.innerHTML = generateCalculatorHTML('today');
+            tomorrowTabContent.innerHTML = generateCalculatorHTML('tomorrow');
+            initializeAdjustmentFactors();
+            renderThroughputSettings();
+            runPredictionBtn.disabled = true;
+        }
+        
+        // --- Firebase Setup ---
+        async function initializeFirebase() {
+            try {
+                // Use environment variables provided by the Canvas environment
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'public-work-forecast-session-v2'; // Fallback for local testing
+
+                // Check if firebaseConfig is valid
+                if (!firebaseConfig.apiKey) {
+                    connectionStatus.textContent = "Firebase 구성 정보를 찾을 수 없습니다.";
+                    showToast("Firebase 구성이 로드되지 않았습니다.", "error");
+                    console.error("Firebase config is missing or invalid.");
+                    return;
                 }
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
                 
-                const pastDayData = data.find(d => d.date.toISOString().split('T')[0] === currentDateStr);
-                if (pastDayData) {
-                    accumulatedOrders += pastDayData.orders;
-                    if (!pastDayData.events.holiday) {
+                onAuthStateChanged(auth, user => {
+                    if (user) {
+                        console.log("Authenticated with UID:", user.uid);
+                        // Once authenticated, connect to the data for the specific app instance
+                        connectToTeamData(appId);
+                    } else {
+                        connectionStatus.textContent = "인증 대기 중...";
+                    }
+                });
+                
+                // Sign in using the token from the environment, or fall back to anonymous sign-in
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+            } catch (error) {
+                console.error("Firebase initialization error:", error);
+                if (error.code === 'auth/api-key-not-valid') {
+                    showToast("Firebase API 키가 유효하지 않습니다.", "error");
+                    connectionStatus.textContent = "Firebase 연결 실패: API 키 오류";
+                } else {
+                    showToast("Firebase 설정 중 오류가 발생했습니다.", "error");
+                    connectionStatus.textContent = "Firebase 연결 실패";
+                }
+            }
+        }
+
+        function connectToTeamData(appId) {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+            
+            currentAppId = appId;
+            connectionStatus.textContent = `공용 데이터에 연결 중...`;
+            
+            const docRef = doc(db, "artifacts", currentAppId, "public/data");
+
+            unsubscribe = onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = JSON.parse(docSnap.data().appState);
+                    loadDataFromFirestore(data);
+                    connectionStatus.textContent = `실시간 동기화에 연결되었습니다.`;
+                } else {
+                    connectionStatus.textContent = `새로운 공용 세션을 시작합니다.`;
+                    loadDefaultData(); 
+                }
+                showToast(`공용 데이터에 연결되었습니다.`, "success");
+                runPredictionBtn.disabled = false;
+            }, (error) => {
+                console.error("Error listening to document:", error);
+                showToast("데이터를 불러오는 중 오류가 발생했습니다.", "error");
+                connectionStatus.textContent = "연결 오류. 콘솔을 확인하세요.";
+            });
+        }
+        
+        function addNewDateRows() {
+            if (!historicalData || historicalData.length === 0) return;
+            const today = new Date();
+            const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            let lastDate = new Date(historicalData[0].date);
+            while (lastDate < todayDateOnly) {
+                lastDate.setDate(lastDate.getDate() + 1);
+                historicalData.unshift({ date: new Date(lastDate).toISOString(), orders: 0, deliveries: 0, events: { promotion: false, holiday: false, warehousing: false } });
+            }
+        }
+        
+        function initializeAdjustmentFactors() {
+            adjustmentFactors.dayOfWeek = Array(7).fill(null).map(() => ({ orders: 1.0, deliveries: 1.0 }));
+        }
+
+        // --- Event Listeners ---
+        openDataModalBtn.addEventListener('click', () => { renderDataModal(); dataModal.classList.remove('hidden'); });
+        closeDataModalBtn.addEventListener('click', () => dataModal.classList.add('hidden'));
+        dataModal.addEventListener('click', (e) => e.target === dataModal && dataModal.classList.add('hidden'));
+        applyDataBtn.addEventListener('click', () => { const newDataArray = readDataFromModal(); learnFromNewData(newDataArray); historicalData = newDataArray.map(d => ({...d, date: d.date.toISOString()})); saveDataToFirestore(); dataModal.classList.add('hidden'); });
+        runPredictionBtn.addEventListener('click', handleAnalysis);
+        document.querySelectorAll('.future-event-cb').forEach(cb => cb.addEventListener('change', handleAnalysis));
+        tabButtons.forEach(button => { button.addEventListener('click', () => { tabButtons.forEach(btn => btn.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active')); button.classList.add('active'); document.getElementById(button.dataset.tab).classList.add('active'); }); });
+        
+        document.getElementById('calculatorWrapper').addEventListener('input', (e) => { if (e.target.classList.contains('calculator-input')) { const card = e.target.closest('.calculator-card'); if (card) { calculateAndDisplayTime(card); saveDataToFirestore(); } } });
+        
+        document.getElementById('calculatorWrapper').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.classList.contains('workload')) {
+                e.preventDefault();
+                e.target.blur();
+            }
+        });
+        
+        // Modal Listeners
+        openPersonnelModalBtn.addEventListener('click', () => personnelModal.classList.remove('hidden'));
+        openThroughputModalBtn.addEventListener('click', () => throughputModal.classList.remove('hidden'));
+        personnelModal.querySelectorAll('.close-modal-btn, #applyPersonnelBtn').forEach(btn => btn.addEventListener('click', () => personnelModal.classList.add('hidden')));
+        throughputModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => throughputModal.classList.add('hidden')));
+        aiReportModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => aiReportModal.classList.add('hidden')));
+        aiAnalysisModal.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => aiAnalysisModal.classList.add('hidden')));
+        personnelModal.addEventListener('click', (e) => e.target === personnelModal && personnelModal.classList.add('hidden'));
+        throughputModal.addEventListener('click', (e) => e.target === throughputModal && throughputModal.classList.add('hidden'));
+        aiReportModal.addEventListener('click', (e) => e.target === aiReportModal && aiReportModal.classList.add('hidden'));
+        aiAnalysisModal.addEventListener('click', (e) => e.target === aiAnalysisModal && aiAnalysisModal.classList.add('hidden'));
+
+        
+        applyPersonnelBtn.addEventListener('click', () => {
+            const personnelCount = globalPersonnelInput.value;
+            if (personnelCount >= 1) {
+                document.querySelectorAll('.calculator-card .personnel').forEach(input => {
+                    input.value = personnelCount;
+                });
+                recalculateAllCards();
+                saveDataToFirestore();
+            }
+        });
+        
+        globalPersonnelInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyPersonnelBtn.click();
+            }
+        });
+
+        saveRatesBtn.addEventListener('click', () => {
+            const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진배송' }, { id: 'warehousing', name: '제작입고' } ];
+            tasks.forEach(task => {
+                taskThroughputs[task.id] = parseFloat(document.getElementById(`rate-${task.id}`).value) || 0;
+            });
+            saveDataToFirestore();
+            showToast('처리량 설정이 저장되었습니다.');
+            recalculateAllCards();
+            throughputModal.classList.add('hidden');
+        });
+
+        // Data Modal Filter Listeners
+        filterDataBtn.addEventListener('click', () => {
+            const dataWithDateObjects = historicalData.map(d => ({...d, date: new Date(d.date)}));
+            const [year, month] = dataFilterMonth.value.split('-');
+            if (year && month) {
+                const filteredData = dataWithDateObjects.filter(d => {
+                    return d.date.getFullYear() === parseInt(year) && (d.date.getMonth() + 1) === parseInt(month);
+                });
+                renderDataModal(filteredData);
+            }
+        });
+        resetFilterBtn.addEventListener('click', () => {
+            renderDataModal();
+        });
+        openAiAnalysisBtn.addEventListener('click', generateAdvancedAnalysis);
+
+
+        // Holiday Backlog Listeners
+        predictBacklogBtn.addEventListener('click', () => {
+            handleBacklogPrediction();
+            saveDataToFirestore();
+            holidayPromotionSettingsDetails.open = false;
+        });
+
+        runHolidayPromotionCheckbox.addEventListener('change', (e) => {
+            holidayPromotionSettingsDetails.classList.toggle('hidden', !e.target.checked);
+            if (e.target.checked) {
+                const avgRate = getAveragePromotionIncrease();
+                promoIncreaseRateInput.value = avgRate;
+                holidayPromotionSettingsDetails.open = true;
+            }
+            saveDataToFirestore();
+        });
+        holidayStartDateInput.addEventListener('change', () => {
+            promoStartDateInput.min = holidayStartDateInput.value;
+            if(holidayEndDateInput.value) promoEndDateInput.min = holidayStartDateInput.value;
+             saveDataToFirestore();
+        });
+        holidayEndDateInput.addEventListener('change', () => {
+            promoStartDateInput.max = holidayEndDateInput.value;
+            promoEndDateInput.max = holidayEndDateInput.value;
+             saveDataToFirestore();
+        });
+        promoStartDateInput.addEventListener('change', saveDataToFirestore);
+        promoEndDateInput.addEventListener('change', saveDataToFirestore);
+        promoIncreaseRateInput.addEventListener('input', saveDataToFirestore);
+
+        document.getElementById('calculatorWrapper').addEventListener('click', (e) => {
+            if (e.target.classList.contains('generate-ai-report')) {
+                const dayId = e.target.dataset.day;
+                generateWorkPlan(dayId);
+            }
+        });
+
+        // --- Pull to Refresh ---
+        const ptrIndicator = document.getElementById('ptr-indicator');
+        let touchStartY = 0;
+        const ptrThreshold = 80;
+
+        document.addEventListener('touchstart', (e) => {
+            if (window.scrollY === 0) {
+                touchStartY = e.touches[0].clientY;
+            } else {
+                touchStartY = -1;
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            if (touchStartY === -1) return;
+
+            const touchY = e.touches[0].clientY;
+            const pullDistance = touchY - touchStartY;
+
+            if (pullDistance > 0) {
+                ptrIndicator.style.opacity = Math.min(pullDistance / ptrThreshold, 1).toString();
+                const rotation = Math.min(pullDistance, ptrThreshold) * 2;
+                ptrIndicator.querySelector('svg').style.transform = `rotate(${rotation}deg)`;
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            if (touchStartY === -1) return;
+
+            const touchY = e.changedTouches[0].clientY;
+            const pullDistance = touchY - touchStartY;
+            
+            ptrIndicator.style.opacity = '0';
+            ptrIndicator.querySelector('svg').style.transform = 'rotate(0deg)';
+
+            if (pullDistance > ptrThreshold) {
+                window.location.reload();
+            }
+            
+            touchStartY = 0;
+        });
+
+        // --- Core Functions ---
+        function handleAnalysis() {
+            if (!currentAppId) {
+                showToast("데이터 동기화가 완료될 때까지 기다려주세요.", "info");
+                return;
+            }
+            runPredictionBtn.disabled = true; runPredictionBtnSpinner.classList.remove('hidden'); runPredictionBtnText.textContent = '예측 중...';
+            
+            const dataWithDateObjects = historicalData.map(d => ({...d, date: new Date(d.date)}));
+            
+            setTimeout(() => {
+                if (dataWithDateObjects.length < 7) { showToast('최소 7일 이상의 데이터가 필요합니다.', 'error'); runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행'; return; }
+                const today = new Date(); const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); const futureEvents = getFutureEvents(); const todayPrediction = predict(dataWithDateObjects, today, futureEvents.today); const tomorrowPrediction = predict(dataWithDateObjects, tomorrow, futureEvents.tomorrow, todayPrediction, futureEvents.today);
+                predictionLog[today.toISOString().split('T')[0]] = todayPrediction; predictionLog[tomorrow.toISOString().split('T')[0]] = tomorrowPrediction;
+                displayPredictionResults(todayPrediction, tomorrowPrediction); displayModelAccuracy(); updateCalculators(todayPrediction, tomorrowPrediction); renderChart(dataWithDateObjects, todayPrediction, tomorrowPrediction);
+                runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행';
+            }, 500);
+        }
+        
+        function handleBacklogPrediction() {
+            const dataWithDateObjects = historicalData.map(d => ({...d, date: new Date(d.date)}));
+            const startDate = holidayStartDateInput.value;
+            const endDate = holidayEndDateInput.value;
+            if (!startDate || !endDate) { showToast('연휴 시작일과 종료일을 모두 선택해주세요.', 'error'); return; }
+            const start = new Date(startDate); const end = new Date(endDate);
+            if (start > end) { showToast('종료일은 시작일보다 빠를 수 없습니다.', 'error'); return; }
+            
+            start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
+            end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
+
+            const runPromo = runHolidayPromotionCheckbox.checked;
+            const promoStart = runPromo ? new Date(promoStartDateInput.value) : null;
+            const promoEnd = runPromo ? new Date(promoEndDateInput.value) : null;
+            const promoRate = runPromo ? (parseFloat(promoIncreaseRateInput.value) || 0) / 100 : 0;
+            
+            if(runPromo && (promoStart > promoEnd || !promoStartDateInput.value || !promoEndDateInput.value)) {
+                  showToast('프로모션 기간을 올바르게 설정해주세요.', 'error');
+                  return;
+            }
+
+            if(runPromo) {
+                  promoStart.setMinutes(promoStart.getMinutes() + promoStart.getTimezoneOffset());
+                  promoEnd.setMinutes(promoEnd.getMinutes() + promoEnd.getTimezoneOffset());
+            }
+
+            let totalBacklogOrders = 0;
+            
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                const isPromoDay = runPromo && d >= promoStart && d <= promoEnd;
+                const holidayEvents = { promotion: isPromoDay, holiday: true, warehousing: false };
+                let holidayPrediction = predict(dataWithDateObjects, new Date(d), holidayEvents);
+                if(isPromoDay) {
+                    holidayPrediction.orders *= (1 + promoRate);
+                }
+                totalBacklogOrders += holidayPrediction.orders;
+            }
+            
+            let firstWorkDay = new Date(end);
+            firstWorkDay.setDate(firstWorkDay.getDate() + 1);
+            const firstWorkDayPrediction = predict(dataWithDateObjects, firstWorkDay, { promotion: false, holiday: false, warehousing: false });
+            const normalOrders = firstWorkDayPrediction.orders;
+            const totalOrders = normalOrders + Math.round(totalBacklogOrders);
+            
+            backlogResultDiv.innerHTML = `
+                <div class="p-3 bg-teal-50 text-teal-800 rounded-lg border border-teal-200">
+                    <p class="font-semibold">연휴 이후 첫 근무일(${firstWorkDay.toLocaleDateString()}) 예상:</p>
+                    <p class="mt-1"><strong>총 예상 주문량: ${totalOrders}건</strong></p>
+                    <p class="text-xs">(기본 ${normalOrders}건 + 연휴 누적 ${Math.round(totalBacklogOrders)}건)</p>
+                </div>
+            `;
+        }
+
+        // --- Learning & Prediction ---
+        function learnFromNewData(newDataArray) { newDataArray.forEach(actual => { const dateString = actual.date.toISOString().split('T')[0]; if (predictionLog[dateString] && (actual.orders > 0 || actual.deliveries > 0)) { const prediction = predictionLog[dateString]; updateAdjustmentFactors(prediction, actual); delete predictionLog[dateString]; } }); }
+        function updateAdjustmentFactors(prediction, actual) { const targetDay = actual.date.getDay(); if (prediction.orders === 0 || prediction.deliveries === 0) return; const orderRatio = actual.orders / prediction.orders; const deliveryRatio = actual.deliveries / prediction.deliveries; let oldOrderFactor = adjustmentFactors.dayOfWeek[targetDay].orders; let oldDeliveryFactor = adjustmentFactors.dayOfWeek[targetDay].deliveries; adjustmentFactors.dayOfWeek[targetDay].orders = oldOrderFactor * (1 - LEARNING_RATE) + orderRatio * LEARNING_RATE; adjustmentFactors.dayOfWeek[targetDay].deliveries = oldDeliveryFactor * (1 - LEARNING_RATE) + deliveryRatio * LEARNING_RATE; }
+        
+        function predict(data, targetDate, futureEvents, todayPrediction = null, todayEvents = null) {
+            const targetDay = targetDate.getDay();
+            const isWeekend = targetDay === 0 || targetDay === 6;
+
+            const relevantOrderDaysData = data.filter(d => d.date.getDay() === targetDay);
+            const orderBaseSource = (relevantOrderDaysData.length > 0 ? relevantOrderDaysData : data.slice(-7)).sort((a,b) => b.date - a.date);
+            let weightedOrderSum = 0, orderTotalWeight = 0;
+            orderBaseSource.forEach((d, i) => { const weight = orderBaseSource.length - i; weightedOrderSum += d.orders * weight; orderTotalWeight += weight; });
+            let predictedOrders = orderTotalWeight > 0 ? weightedOrderSum / orderTotalWeight : 0;
+            const multipliers = { promotion: calculateMultiplier(data, 'promotion'), holiday: calculateMultiplier(data, 'holiday'), warehousing: calculateMultiplier(data, 'warehousing') };
+            if (futureEvents.promotion) { predictedOrders *= multipliers.promotion.orders; }
+            if (futureEvents.holiday) { predictedOrders *= multipliers.holiday.orders; }
+            if (futureEvents.warehousing) { predictedOrders *= multipliers.warehousing.orders; }
+            predictedOrders *= adjustmentFactors.dayOfWeek[targetDay].orders;
+            
+            let predictedDeliveries;
+            if (futureEvents.holiday) {
+                predictedDeliveries = 0; // Holidays have no deliveries
+            } else {
+                let accumulatedOrders = 0;
+                let currentDate = new Date(targetDate);
+                
+                for (let i = 1; i <= data.length; i++) {
+                    currentDate.setDate(currentDate.getDate() - 1);
+                    const currentDateStr = currentDate.toISOString().split('T')[0];
+
+                    if (todayPrediction && i === 1) {
+                        accumulatedOrders += todayPrediction.orders;
+                        if (todayEvents && !todayEvents.holiday) {
+                            break;
+                        }
+                        continue; 
+                    }
+                    
+                    const pastDayData = data.find(d => d.date.toISOString().split('T')[0] === currentDateStr);
+                    if (pastDayData) {
+                        accumulatedOrders += pastDayData.orders;
+                        if (!pastDayData.events.holiday) {
+                            break;
+                        }
+                    } else {
+                        if (i === 1) {
+                            accumulatedOrders = todayPrediction ? todayPrediction.orders : data[0].orders;
+                        }
                         break;
                     }
-                } else {
-                    if (i === 1) {
-                        accumulatedOrders = todayPrediction ? todayPrediction.orders : data[0].orders;
-                    }
-                    break;
+                }
+
+                const deliveryRatio = calculateDeliveryRatio(data);
+                predictedDeliveries = accumulatedOrders * deliveryRatio;
+                
+                if (futureEvents.promotion) { predictedDeliveries *= multipliers.promotion.deliveries; }
+                if (futureEvents.warehousing) { predictedDeliveries *= multipliers.warehousing.deliveries; }
+                predictedDeliveries *= adjustmentFactors.dayOfWeek[targetDay].deliveries;
+                
+                // Adjust for shorter weekend hours
+                if (isWeekend) {
+                    predictedDeliveries *= 0.55; // 4 hours is ~55% of 8 hours, accounting for some efficiency loss/gain
                 }
             }
 
-            const deliveryRatio = calculateDeliveryRatio(data);
-            predictedDeliveries = accumulatedOrders * deliveryRatio;
+            return { date: targetDate, orders: Math.round(predictedOrders), deliveries: Math.round(predictedDeliveries) };
+        }
+
+        function calculateDeliveryRatio(data) {
+            let totalWeightedRatio = 0, totalWeight = 0;
+            for (let i = 0; i < data.length - 1; i++) {
+                const deliveryDayData = data[i];
+                if (deliveryDayData.events.holiday || deliveryDayData.deliveries === 0) continue;
+
+                let accumulatedOrders = 0;
+                for (let j = i + 1; j < data.length; j++) {
+                    const orderDayData = data[j];
+                    accumulatedOrders += orderDayData.orders;
+                    if (!orderDayData.events.holiday) break;
+                }
+
+                if (accumulatedOrders > 0) {
+                    const ratio = deliveryDayData.deliveries / accumulatedOrders;
+                    const weight = data.length - i;
+                    totalWeightedRatio += ratio * weight;
+                    totalWeight += weight;
+                }
+            }
+            return totalWeight > 0 ? totalWeightedRatio / totalWeight : 1;
+        }
+
+        function calculateMultiplier(data, eventType) { const eventDays = data.filter(d => d.events[eventType]); const nonEventDays = data.filter(d => !d.events[eventType]); if (eventDays.length < 2 || nonEventDays.length < 2) return { orders: 1, deliveries: 1 }; const avgEventOrders = eventDays.reduce((sum, d) => sum + d.orders, 0) / eventDays.length; const avgNonEventOrders = nonEventDays.reduce((sum, d) => sum + d.orders, 0) / nonEventDays.length; const avgEventDeliveries = eventDays.reduce((sum, d) => sum + d.deliveries, 0) / eventDays.length; const avgNonEventDeliveries = nonEventDays.reduce((sum, d) => sum + d.deliveries, 0) / nonEventDays.length; return { orders: avgNonEventOrders === 0 ? 1 : avgEventOrders / avgNonEventOrders, deliveries: avgNonEventDeliveries === 0 ? 1 : avgEventDeliveries / avgNonEventDeliveries }; }
+        
+        function getAveragePromotionIncrease() {
+            const dataWithDateObjects = historicalData.map(d => ({...d, date: new Date(d.date)}));
+            const multiplier = calculateMultiplier(dataWithDateObjects, 'promotion');
+            const increaseRate = Math.round((multiplier.orders - 1) * 100);
+            return increaseRate > 0 ? increaseRate : 80; // Fallback to 80 if no data or negative effect
+        }
+
+        // --- UI Update Functions ---
+        function displayPredictionResults(today, tomorrow) { predictionResultDiv.innerHTML = `<h3 class="text-lg font-semibold border-t pt-4 mb-3">예측 결과</h3><div class="space-y-2 text-sm"><div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-medium">오늘 (${today.date.toLocaleDateString()}) 예상:</span><span class="font-bold text-indigo-600">주문 ${today.orders} / 배송 ${today.deliveries}</span></div><div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-medium">내일 (${tomorrow.date.toLocaleDateString()}) 예상:</span><span class="font-bold text-indigo-600">주문 ${tomorrow.orders} / 배송 ${tomorrow.deliveries}</span></div></div>`; }
+        function displayModelAccuracy() { let totalDeviation = 0; adjustmentFactors.dayOfWeek.forEach(factor => { totalDeviation += Math.abs(factor.orders - 1); totalDeviation += Math.abs(factor.deliveries - 1); }); const accuracy = 100 * (1 - (totalDeviation / (adjustmentFactors.dayOfWeek.length * 2))); modelAccuracyDiv.innerHTML = `<div class="text-sm p-3 bg-indigo-50 text-indigo-800 rounded-lg flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg><span>현재 모델 정확도: <strong class="font-bold">${accuracy.toFixed(1)}%</strong></span></div>`; }
+        
+        function renderChart(historicalDataWithDates, todayPrediction, tomorrowPrediction) {
+            const reversedData = [...historicalDataWithDates].slice(0, 30).reverse();
+            const labels = reversedData.map(d => d.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }));
+            const historicalOrders = reversedData.map(d => d.orders);
+            const historicalDeliveries = reversedData.map(d => d.deliveries);
             
-            if (futureEvents.promotion) { predictedDeliveries *= multipliers.promotion.deliveries; }
-            if (futureEvents.warehousing) { predictedDeliveries *= multipliers.warehousing.deliveries; }
-            predictedDeliveries *= adjustmentFactors.dayOfWeek[targetDay].deliveries;
+            const allLabels = [...labels, todayPrediction.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }), tomorrowPrediction.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })];
+            const predictionOrderData = Array(labels.length).fill(null).concat([todayPrediction.orders, tomorrowPrediction.orders]);
+            const predictionDeliveryData = Array(labels.length).fill(null).concat([todayPrediction.deliveries, tomorrowPrediction.deliveries]);
+            
+            const promoAnnotationsData = reversedData.map(d => d.events.promotion ? d.orders : null);
+            const warehousingAnnotationsData = reversedData.map(d => d.events.warehousing ? d.orders : null);
+
+            if (predictionChart) predictionChart.destroy();
+            
+            predictionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: allLabels,
+                    datasets: [
+                        { label: '과거 주문량', data: historicalOrders.concat(Array(2).fill(null)), borderColor: 'rgba(59, 130, 246, 0.6)', tension: 0.1 },
+                        { label: '과거 배송량', data: historicalDeliveries.concat(Array(2).fill(null)), borderColor: 'rgba(16, 185, 129, 0.6)', tension: 0.1 },
+                        { label: '예측 주문량', data: predictionOrderData, borderColor: 'rgba(59, 130, 246, 1)', borderDash: [5, 5], pointRadius: 5 },
+                        { label: '예측 배송량', data: predictionDeliveryData, borderColor: 'rgba(16, 185, 129, 1)', borderDash: [5, 5], pointRadius: 5 },
+                        { label: '프로모션', data: promoAnnotationsData, pointStyle: 'triangle', radius: 8, pointBackgroundColor: 'rgba(239, 68, 68, 1)', showLine: false },
+                        { label: '제작입고', data: warehousingAnnotationsData, pointStyle: 'star', radius: 8, pointBackgroundColor: 'rgba(245, 158, 11, 1)', showLine: false }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } }, plugins: { legend: { position: 'top' } } }
+            });
         }
 
-        return { date: targetDate, orders: Math.round(predictedOrders), deliveries: Math.round(predictedDeliveries) };
-    }
+        // --- Time Formatting Helper ---
+        function formatHoursToHM(decimalHours) { if (isNaN(decimalHours) || decimalHours < 0) { return '0시간 0분'; } const totalMinutes = Math.round(decimalHours * 60); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${hours}시간 ${minutes}분`; }
 
-    function calculateDeliveryRatio(data) {
-        let totalWeightedRatio = 0, totalWeight = 0;
-        for (let i = 0; i < data.length - 1; i++) {
-            const deliveryDayData = data[i];
-            if (deliveryDayData.events.holiday || deliveryDayData.deliveries === 0) continue;
-
-            let accumulatedOrders = 0;
-            for (let j = i + 1; j < data.length; j++) {
-                const orderDayData = data[j];
-                accumulatedOrders += orderDayData.orders;
-                if (!orderDayData.events.holiday) break;
+        // --- Data Persistence (Firestore) ---
+        async function saveDataToFirestore() {
+            if (!currentAppId || !auth.currentUser) return;
+            const docRef = doc(db, "artifacts", currentAppId, "public/data");
+            
+            const stateToSave = {
+                historicalData,
+                taskThroughputs,
+                holidaySettings: {
+                    holidayStart: holidayStartDateInput.value,
+                    holidayEnd: holidayEndDateInput.value,
+                    promoChecked: runHolidayPromotionCheckbox.checked,
+                    promoStart: promoStartDateInput.value,
+                    promoEnd: promoEndDateInput.value,
+                    promoRate: promoIncreaseRateInput.value,
+                    resultHTML: backlogResultDiv.innerHTML
+                },
+                 globalPersonnel: globalPersonnelInput.value
+            };
+            try {
+                await setDoc(docRef, { appState: JSON.stringify(stateToSave) });
+                console.log("Data saved to Firestore");
+            } catch (error) {
+                console.error("Error saving data to Firestore: ", error);
+                showToast("데이터 저장에 실패했습니다.", "error");
             }
-
-            if (accumulatedOrders > 0) {
-                const ratio = deliveryDayData.deliveries / accumulatedOrders;
-                const weight = data.length - i;
-                totalWeightedRatio += ratio * weight;
-                totalWeight += weight;
-            }
         }
-        return totalWeight > 0 ? totalWeightedRatio / totalWeight : 1;
-    }
 
-    function calculateMultiplier(data, eventType) { const eventDays = data.filter(d => d.events[eventType]); const nonEventDays = data.filter(d => !d.events[eventType]); if (eventDays.length < 2 || nonEventDays.length < 2) return { orders: 1, deliveries: 1 }; const avgEventOrders = eventDays.reduce((sum, d) => sum + d.orders, 0) / eventDays.length; const avgNonEventOrders = nonEventDays.reduce((sum, d) => sum + d.orders, 0) / nonEventDays.length; const avgEventDeliveries = eventDays.reduce((sum, d) => sum + d.deliveries, 0) / eventDays.length; const avgNonEventDeliveries = nonEventDays.reduce((sum, d) => sum + d.deliveries, 0) / nonEventDays.length; return { orders: avgNonEventOrders === 0 ? 1 : avgEventOrders / avgNonEventOrders, deliveries: avgNonEventDeliveries === 0 ? 1 : avgEventDeliveries / avgNonEventDeliveries }; }
-    
-    function getAveragePromotionIncrease() {
-        const multiplier = calculateMultiplier(historicalData, 'promotion');
-        const increaseRate = Math.round((multiplier.orders - 1) * 100);
-        return increaseRate > 0 ? increaseRate : 80; // Fallback to 80 if no data or negative effect
-    }
-
-    // --- UI Update Functions ---
-    function displayPredictionResults(today, tomorrow) { predictionResultDiv.innerHTML = `<h3 class="text-lg font-semibold border-t pt-4 mb-3">예측 결과</h3><div class="space-y-2 text-sm"><div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-medium">오늘 (${today.date.toLocaleDateString()}) 예상:</span><span class="font-bold text-indigo-600">주문 ${today.orders} / 배송 ${today.deliveries}</span></div><div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-medium">내일 (${tomorrow.date.toLocaleDateString()}) 예상:</span><span class="font-bold text-indigo-600">주문 ${tomorrow.orders} / 배송 ${tomorrow.deliveries}</span></div></div>`; }
-    function displayModelAccuracy() { let totalDeviation = 0; adjustmentFactors.dayOfWeek.forEach(factor => { totalDeviation += Math.abs(factor.orders - 1); totalDeviation += Math.abs(factor.deliveries - 1); }); const accuracy = 100 * (1 - (totalDeviation / (adjustmentFactors.dayOfWeek.length * 2))); modelAccuracyDiv.innerHTML = `<div class="text-sm p-3 bg-indigo-50 text-indigo-800 rounded-lg flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg><span>현재 모델 정확도: <strong class="font-bold">${accuracy.toFixed(1)}%</strong></span></div>`; }
-    
-    function renderChart(historicalData, todayPrediction, tomorrowPrediction) {
-        const reversedData = [...historicalData].slice(0, 30).reverse();
-        const labels = reversedData.map(d => d.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }));
-        const historicalOrders = reversedData.map(d => d.orders);
-        const historicalDeliveries = reversedData.map(d => d.deliveries);
-        
-        const allLabels = [...labels, todayPrediction.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }), tomorrowPrediction.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })];
-        const predictionOrderData = Array(labels.length).fill(null).concat([todayPrediction.orders, tomorrowPrediction.orders]);
-        const predictionDeliveryData = Array(labels.length).fill(null).concat([todayPrediction.deliveries, tomorrowPrediction.deliveries]);
-        
-        const promoAnnotationsData = reversedData.map(d => d.events.promotion ? d.orders : null);
-        const warehousingAnnotationsData = reversedData.map(d => d.events.warehousing ? d.orders : null);
-
-        if (predictionChart) predictionChart.destroy();
-        
-        predictionChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: allLabels,
-                datasets: [
-                    { label: '과거 주문량', data: historicalOrders.concat(Array(2).fill(null)), borderColor: 'rgba(59, 130, 246, 0.6)', tension: 0.1 },
-                    { label: '과거 배송량', data: historicalDeliveries.concat(Array(2).fill(null)), borderColor: 'rgba(16, 185, 129, 0.6)', tension: 0.1 },
-                    { label: '예측 주문량', data: predictionOrderData, borderColor: 'rgba(59, 130, 246, 1)', borderDash: [5, 5], pointRadius: 5 },
-                    { label: '예측 배송량', data: predictionDeliveryData, borderColor: 'rgba(16, 185, 129, 1)', borderDash: [5, 5], pointRadius: 5 },
-                    { label: '프로모션', data: promoAnnotationsData, pointStyle: 'triangle', radius: 8, pointBackgroundColor: 'rgba(239, 68, 68, 1)', showLine: false },
-                    { label: '제작입고', data: warehousingAnnotationsData, pointStyle: 'star', radius: 8, pointBackgroundColor: 'rgba(245, 158, 11, 1)', showLine: false }
-                ]
-            },
-            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } }, plugins: { legend: { position: 'top' } } }
-        });
-    }
-
-    // --- Time Formatting Helper ---
-    function formatHoursToHM(decimalHours) { if (isNaN(decimalHours) || decimalHours < 0) { return '0시간 0분'; } const totalMinutes = Math.round(decimalHours * 60); const hours = Math.floor(totalMinutes / 60); const minutes = totalMinutes % 60; return `${hours}시간 ${minutes}분`; }
-
-    // --- Data Persistence ---
-    function loadThroughputs() { const saved = localStorage.getItem('taskThroughputs'); taskThroughputs = saved ? JSON.parse(saved) : { delivery: 5, forwarding: 5, warehousing: 5 }; }
-    function saveThroughputs() { localStorage.setItem('taskThroughputs', JSON.stringify(taskThroughputs)); }
-    function loadHistoricalData() {
-        const saved = localStorage.getItem('historicalData');
-        if (saved) {
-            historicalData = JSON.parse(saved).map(d => ({ ...d, date: new Date(d.date) }));
-        } else {
-            historicalData = defaultHistoricalData.map(d => ({...d, date: new Date(d.date)}));
-        }
-    }
-    function saveHistoricalData() { localStorage.setItem('historicalData', JSON.stringify(historicalData)); }
-    function loadHolidaySettings() {
-        const saved = localStorage.getItem('holidaySettings');
-        if (saved) {
-            const settings = JSON.parse(saved);
+        function loadDataFromFirestore(data) {
+            historicalData = data.historicalData || defaultHistoricalData.map(d => ({...d, date: new Date(d.date).toISOString()}));
+            taskThroughputs = data.taskThroughputs || { delivery: 5, forwarding: 5, warehousing: 5 };
+            
+            const settings = data.holidaySettings || {};
             holidayStartDateInput.value = settings.holidayStart || '';
             holidayEndDateInput.value = settings.holidayEnd || '';
             runHolidayPromotionCheckbox.checked = settings.promoChecked || false;
@@ -770,281 +943,292 @@ document.addEventListener('DOMContentLoaded', () => {
             promoEndDateInput.value = settings.promoEnd || '';
             promoIncreaseRateInput.value = settings.promoRate || '80';
             backlogResultDiv.innerHTML = settings.resultHTML || '';
-
             holidayPromotionSettingsDetails.classList.toggle('hidden', !runHolidayPromotionCheckbox.checked);
             if(runHolidayPromotionCheckbox.checked) {
                 holidayPromotionSettingsDetails.open = true;
             }
+            
+            globalPersonnelInput.value = data.globalPersonnel || '1';
+            applyPersonnelBtn.click(); // Apply loaded personnel setting
+
+            addNewDateRows();
+            handleAnalysis();
         }
-    }
-    function saveHolidaySettings() {
-        const settings = {
-            holidayStart: holidayStartDateInput.value,
-            holidayEnd: holidayEndDateInput.value,
-            promoChecked: runHolidayPromotionCheckbox.checked,
-            promoStart: promoStartDateInput.value,
-            promoEnd: promoEndDateInput.value,
-            promoRate: promoIncreaseRateInput.value,
-            resultHTML: backlogResultDiv.innerHTML
-        };
-        localStorage.setItem('holidaySettings', JSON.stringify(settings));
-    }
+        
+        function loadDefaultData() {
+            historicalData = defaultHistoricalData.map(d => ({...d, date: new Date(d.date).toISOString()}));
+            taskThroughputs = { delivery: 5, forwarding: 5, warehousing: 5 };
+            addNewDateRows();
+            handleAnalysis();
+        }
 
-
-    // --- Calculator & Throughput ---
-    function renderThroughputSettings() {
-        const container = document.getElementById('throughputSettings');
-        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진배송' }, { id: 'warehousing', name: '제작입고' } ];
-        let inputsHTML = tasks.map(task => `<div><label class="block mb-1 text-gray-600 text-sm">${task.name}</label><input type="number" id="rate-${task.id}" class="w-full p-2 border rounded-md" value="${taskThroughputs[task.id]}"></div>`).join('');
-        container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">${inputsHTML}</div>`;
-        const inputs = tasks.map(task => document.getElementById(`rate-${task.id}`));
-        inputs.forEach((input, index) => {
-            input.addEventListener('keydown', e => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const nextIndex = index + 1;
-                    if (nextIndex < inputs.length) {
-                        inputs[nextIndex].focus();
-                    } else {
-                        saveRatesBtn.focus();
+        // --- Calculator & Throughput ---
+        function renderThroughputSettings() {
+            const container = document.getElementById('throughputSettings');
+            const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진배송' }, { id: 'warehousing', name: '제작입고' } ];
+            let inputsHTML = tasks.map(task => `<div><label class="block mb-1 text-gray-600 text-sm">${task.name}</label><input type="number" id="rate-${task.id}" class="w-full p-2 border rounded-md" value="${taskThroughputs[task.id] || 5}"></div>`).join('');
+            container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">${inputsHTML}</div>`;
+            const inputs = tasks.map(task => document.getElementById(`rate-${task.id}`));
+            inputs.forEach((input, index) => {
+                input.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const nextIndex = index + 1;
+                        if (nextIndex < inputs.length) {
+                            inputs[nextIndex].focus();
+                        } else {
+                            saveRatesBtn.focus();
+                        }
                     }
+                });
+            });
+        }
+
+        function recalculateAllCards() { document.querySelectorAll('.calculator-card').forEach(calculateAndDisplayTime); }
+        
+        function updateCalculators(todayPrediction, tomorrowPrediction) {
+            updateCardWorkload('today', 'delivery', todayPrediction.deliveries);
+            updateCardWorkload('today', 'forwarding', '');
+            updateCardWorkload('today', 'warehousing', '');
+            updateCardWorkload('tomorrow', 'delivery', tomorrowPrediction.deliveries);
+            updateCardWorkload('tomorrow', 'forwarding', '');
+            updateCardWorkload('tomorrow', 'warehousing', '');
+        }
+
+        function updateCardWorkload(dayId, taskType, workload) {
+            const card = document.querySelector(`#${dayId} .calculator-card[data-task-type="${taskType}"]`);
+            if (card) {
+                const workloadInput = card.querySelector('.workload');
+                workloadInput.value = workload;
+                calculateAndDisplayTime(card);
+            }
+        }
+
+        function calculateAndDisplayTime(card) { const taskType = card.dataset.taskType; const rate = taskThroughputs[taskType] || 0; const workload = parseFloat(card.querySelector('.workload').value); const personnel = parseInt(card.querySelector('.personnel').value, 10); const resultEl = card.querySelector('.result-time'); let totalHours = 0; if (rate > 0 && workload > 0 && personnel > 0) { totalHours = (workload / (rate * personnel) / 60); } resultEl.dataset.hours = totalHours.toFixed(4); resultEl.textContent = formatHoursToHM(totalHours); updateWorkSummary(card.closest('.tab-content').id); }
+        
+        function updateWorkSummary(dayId) {
+            const container = document.getElementById(dayId);
+            const summaryEl = container.querySelector('.summary-container');
+
+            const tempDate = new Date();
+            if (dayId === 'tomorrow') {
+                tempDate.setDate(tempDate.getDate() + 1);
+            }
+            const dayOfWeek = tempDate.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            const standardWorkHours = isWeekend ? 4 : 8;
+
+            let totalHours = 0;
+            let totalManMinutes = 0;
+            
+            container.querySelectorAll('.calculator-card').forEach(card => {
+                totalHours += parseFloat(card.querySelector('.result-time').dataset.hours) || 0;
+                const workload = parseFloat(card.querySelector('.workload').value) || 0;
+                const rate = taskThroughputs[card.dataset.taskType] || 0;
+                if (rate > 0) {
+                    totalManMinutes += workload / rate;
                 }
             });
-        });
-    }
 
-    function recalculateAllCards() { document.querySelectorAll('.calculator-card').forEach(calculateAndDisplayTime); }
-    
-    function updateCalculators(todayPrediction, tomorrowPrediction) {
-        updateCardWorkload('today', 'delivery', todayPrediction.deliveries);
-        updateCardWorkload('today', 'forwarding', '');
-        updateCardWorkload('today', 'warehousing', '');
-        updateCardWorkload('tomorrow', 'delivery', tomorrowPrediction.deliveries);
-        updateCardWorkload('tomorrow', 'forwarding', '');
-        updateCardWorkload('tomorrow', 'warehousing', '');
-    }
-
-    function updateCardWorkload(dayId, taskType, workload) {
-        const card = document.querySelector(`#${dayId} .calculator-card[data-task-type="${taskType}"]`);
-        if (card) {
-            const workloadInput = card.querySelector('.workload');
-            workloadInput.value = workload;
-            calculateAndDisplayTime(card);
-        }
-    }
-
-    function calculateAndDisplayTime(card) { const taskType = card.dataset.taskType; const rate = taskThroughputs[taskType] || 0; const workload = parseFloat(card.querySelector('.workload').value); const personnel = parseInt(card.querySelector('.personnel').value, 10); const resultEl = card.querySelector('.result-time'); let totalHours = 0; if (rate > 0 && workload > 0 && personnel > 0) { totalHours = (workload / (rate * personnel) / 60); } resultEl.dataset.hours = totalHours.toFixed(4); resultEl.textContent = formatHoursToHM(totalHours); updateWorkSummary(card.closest('.tab-content').id); }
-    
-    function updateWorkSummary(dayId) {
-        const container = document.getElementById(dayId);
-        const summaryEl = container.querySelector('.summary-container');
-        let totalHours = 0;
-        let totalManMinutes = 0;
-        
-        container.querySelectorAll('.calculator-card').forEach(card => {
-            totalHours += parseFloat(card.querySelector('.result-time').dataset.hours) || 0;
-            const workload = parseFloat(card.querySelector('.workload').value) || 0;
-            const rate = taskThroughputs[card.dataset.taskType] || 0;
-            if (rate > 0) {
-                totalManMinutes += workload / rate;
-            }
-        });
-
-        const currentTotalPersonnel = parseInt(globalPersonnelInput.value, 10) || 1;
-        const difference = totalHours - 8;
-        let summaryHTML = `<p class="text-lg font-bold">총 예상 소요 시간: <span class="text-blue-600">${formatHoursToHM(totalHours)}</span></p>`;
-        
-        if (difference > 0) {
-            summaryHTML += `<p class="text-sm font-medium text-red-600">기준 시간(8시간) 대비 ${formatHoursToHM(difference)} 초과</p>`;
-            const requiredPersonnel = Math.ceil((totalManMinutes / 60) / 8);
-            const additionalPersonnel = requiredPersonnel - currentTotalPersonnel;
-            if (additionalPersonnel > 0) {
-                 summaryHTML += `<p class="text-sm font-medium text-amber-600 mt-1">8시간 내 완료를 위해 <strong class="font-bold">${additionalPersonnel}명</strong>의 추가 인원이 필요합니다. (총 ${requiredPersonnel}명 권장)</p>`;
-            }
-        } else {
-            summaryHTML += `<p class="text-sm font-medium text-green-600">기준 시간(8시간)까지 ${formatHoursToHM(Math.abs(difference))} 여유</p>`;
-        }
-        
-        summaryHTML += `<button class="generate-ai-report mt-4 w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:from-purple-600 hover:to-indigo-700 btn text-sm" data-day="${dayId}">
-            ✨ AI 업무 계획서 생성
-        </button>`;
-
-        summaryEl.innerHTML = summaryHTML;
-    }
-
-    function generateCalculatorHTML() {
-        const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진배송' }, { id: 'warehousing', name: '제작입고' } ];
-        const cardsHTML = tasks.map(task => `
-            <div class="calculator-card border border-gray-200 p-4 rounded-lg" data-task-type="${task.id}">
-                <div class="flex items-center justify-between mb-3">
-                    <h4 class="font-semibold text-md">${task.name}</h4>
-                    <div class="text-right"> <p class="text-sm text-gray-500">예상 소요 시간</p> <p class="result-time text-lg font-bold text-blue-600" data-hours="0">0시간 0분</p> </div>
-                </div>
-                <div class="flex items-center justify-between text-sm space-x-4">
-                    <div class="flex-grow"><label class="block mb-1 text-gray-600">업무량(건)</label><input type="number" class="calculator-input workload w-full p-2 border rounded-md" value=""></div>
-                    <div class="w-24"><label class="block mb-1 text-gray-600">투입인원</label><input type="number" class="calculator-input personnel w-full p-2 border rounded-md" value="1" min="1"></div>
-                </div>
-            </div>`).join('');
-        return cardsHTML + `<div class="summary-container mt-6 p-4 bg-gray-100 rounded-lg text-center"></div>`;
-    }
-    
-    // --- Gemini AI Function ---
-    async function generateWorkPlan(dayId) {
-        aiReportModal.classList.remove('hidden');
-        aiReportContent.innerHTML = '<div class="flex justify-center items-center h-full"><svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-4 text-gray-700">AI가 보고서를 작성하고 있습니다...</span></div>';
-
-        const date = new Date();
-        if (dayId === 'tomorrow') {
-            date.setDate(date.getDate() + 1);
-        }
-        const dateString = date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
-
-        const container = document.getElementById(dayId);
-        const totalTimeText = container.querySelector('.summary-container .text-blue-600').textContent;
-        const statusText = (container.querySelector('.summary-container .text-red-600') || container.querySelector('.summary-container .text-green-600')).textContent;
-
-        const dateKey = (dayId === 'today') ? new Date().toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0];
-        const prediction = predictionLog[dateKey];
-
-        const deliveryTimeText = container.querySelector('.calculator-card[data-task-type="delivery"] .result-time').textContent;
-        const forwardingWorkload = container.querySelector('.calculator-card[data-task-type="forwarding"] .workload').value || '0';
-        const forwardingTimeText = container.querySelector('.calculator-card[data-task-type="forwarding"] .result-time').textContent;
-        const warehousingWorkload = container.querySelector('.calculator-card[data-task-type="warehousing"] .workload').value || '0';
-        const warehousingTimeText = container.querySelector('.calculator-card[data-task-type="warehousing"] .result-time').textContent;
-
-        const systemPrompt = "당신은 온라인 여성 의류 쇼핑몰의 유능하고 효율적인 물류팀장입니다. 우리 팀의 업무 규칙을 명확히 이해하고 계획을 작성해야 합니다. **근무 시간:** 08:30 ~ 17:30. **점심 시간:** 12:30 ~ 13:30 (이 시간 동안 모든 업무 중단). **업무 개념:** '배송'은 일반적인 피킹, 포장, 발송 전체를 의미하는 핵심 업무이며, 예측된 배송량을 처리합니다. '직진배송'은 이와는 완전히 별개의 빠른 배송 업무입니다. '제작입고'는 상품 입고 업무입니다. **업무 순서 및 방식:** 모든 업무는 순차적으로 진행되며, 일반적인 순서는 [오전 배송 -> 제작입고 (있는 경우) -> 직진배송 -> 오후 배송] 입니다. '배송' 업무는 오전에 전체 물량의 약 45%를 처리하고, 오후에 나머지 물량을 나눠서 처리합니다. **중요 규칙:** 만약 특정 업무가 점심시간 전에 시작되었으나 끝나지 않았다면, 12:30에 중단하고 13:30에 이어서 계속 진행한 후 다음 업무로 넘어갑니다. 주어진 각 업무의 '예상 소요 시간'을 반드시 반영하여 현실적인 작업 타임라인을 분 단위로 계산해주세요. 이 모든 정보를 바탕으로, 실제 현장에서 바로 사용할 수 있는 간결하고 명확한 '일일 업무 계획서'를 작성해주세요. 보고서는 항상 한국어로 작성해주세요.";
-        const userQuery = `
-        아래 데이터를 바탕으로 ${dateString}의 '일일 업무 계획서'를 작성해주세요.
-
-        **핵심 데이터:**
-        - 예측 배송 업무량 (전체): ${prediction.deliveries}건
-        - 직진배송 업무량: ${forwardingWorkload}건
-        - 제작입고 업무량: ${warehousingWorkload}건
-        - 총 예상 소요 시간: ${totalTimeText}
-        - 업무 시간 상태: ${statusText}
-
-        **각 업무별 예상 소요 시간:**
-        - 배송(전체): ${deliveryTimeText}
-        - 직진배송: ${forwardingTimeText}
-        - 제작입고: ${warehousingTimeText}
-
-        **계획서 필수 포함 항목:**
-        1.  **핵심 목표 (Key Goals)**: 오늘의 처리해야 할 가장 중요한 목표 수치를 2~3줄로 요약.
-        2.  **작업 타임라인 (Work Timeline)**: 근무 시간(08:30-17:30)과 점심시간(12:30-13:30)을 엄격히 준수하고, [오전 배송 -> 제작입고(있는 경우) -> 직진배송 -> 오후 배송] 순서에 따라, 각 작업의 예상 시작/종료 시간, 주요 내용, 담당 인원을 명확하게 명시. 특히 배송 업무는 오전(약 45%)과 오후로 나누어 계획하고, 점심시간에 걸치는 업무는 중단 후 재개하는 것을 반영해주세요.
-        3.  **주요 지시사항 (Key Instructions)**: 예상되는 문제점이나 팀원들이 특별히 신경 써야 할 부분을 2~3가지 항목으로 간결하게 지시.
-
-        **작성 스타일:**
-        - 보고서의 서론, 결론, 격려 메시지 등은 제외하고, 실제 업무 지시에 필요한 내용만 간결하게 작성해주세요.
-        - 각 항목은 명확하게 구분하고, 팀원들이 바로 이해할 수 있도록 직설적으로 작성해주세요.
-        `;
-
-        const apiKey = "AIzaSyCVqaGpAA_YW5y8pUiiiXNohS6XqEbyv1A";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-        try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: userQuery }] }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] },
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`API call failed with status: ${response.status}`);
-            }
-
-            const result = await response.json();
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-
-            if (text) {
-                aiReportContent.innerHTML = text.replace(/\n/g, '<br>');
+            const currentTotalPersonnel = parseInt(globalPersonnelInput.value, 10) || 1;
+            const difference = totalHours - standardWorkHours;
+            let summaryHTML = `<p class="text-lg font-bold">총 예상 소요 시간: <span class="text-blue-600">${formatHoursToHM(totalHours)}</span></p>`;
+            
+            if (difference > 0) {
+                summaryHTML += `<p class="text-sm font-medium text-red-600">기준 시간(${standardWorkHours}시간) 대비 ${formatHoursToHM(difference)} 초과</p>`;
+                const requiredPersonnel = Math.ceil((totalManMinutes / 60) / standardWorkHours);
+                const additionalPersonnel = requiredPersonnel - currentTotalPersonnel;
+                if (additionalPersonnel > 0) {
+                     summaryHTML += `<p class="text-sm font-medium text-amber-600 mt-1">${standardWorkHours}시간 내 완료를 위해 <strong class="font-bold">${additionalPersonnel}명</strong>의 추가 인원이 필요합니다. (총 ${requiredPersonnel}명 권장)</p>`;
+                }
             } else {
-                aiReportContent.textContent = 'AI로부터 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요.';
+                summaryHTML += `<p class="text-sm font-medium text-green-600">기준 시간(${standardWorkHours}시간)까지 ${formatHoursToHM(Math.abs(difference))} 여유</p>`;
             }
+            
+            summaryHTML += `<button class="generate-ai-report mt-4 w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:from-purple-600 hover:to-indigo-700 btn text-sm" data-day="${dayId}">
+                ✨ AI 업무 계획서 생성
+            </button>`;
 
-        } catch (error) {
-            console.error('Error generating AI report:', error);
-            aiReportContent.textContent = `오류가 발생했습니다: ${error.message}`;
+            summaryEl.innerHTML = summaryHTML;
         }
-    }
 
-    // --- Gemini AI Advanced Analysis ---
-    async function generateAdvancedAnalysis() {
-        aiAnalysisModal.classList.remove('hidden');
-        aiAnalysisContent.innerHTML = '<div class="flex justify-center items-center h-full"><svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-4 text-gray-700">AI가 데이터를 심층 분석하고 있습니다...</span></div>';
+        function generateCalculatorHTML() {
+            const tasks = [ { id: 'delivery', name: '배송' }, { id: 'forwarding', name: '직진배송' }, { id: 'warehousing', name: '제작입고' } ];
+            const cardsHTML = tasks.map(task => `
+                <div class="calculator-card border border-gray-200 p-4 rounded-lg" data-task-type="${task.id}">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-semibold text-md">${task.name}</h4>
+                        <div class="text-right"> <p class="text-sm text-gray-500">예상 소요 시간</p> <p class="result-time text-lg font-bold text-blue-600" data-hours="0">0시간 0분</p> </div>
+                    </div>
+                    <div class="flex items-center justify-between text-sm space-x-4">
+                        <div class="flex-grow"><label class="block mb-1 text-gray-600">업무량(건)</label><input type="number" class="calculator-input workload w-full p-2 border rounded-md" value=""></div>
+                        <div class="w-24"><label class="block mb-1 text-gray-600">투입인원</label><input type="number" class="calculator-input personnel w-full p-2 border rounded-md" value="1" min="1"></div>
+                    </div>
+                </div>`).join('');
+            return cardsHTML + `<div class="summary-container mt-6 p-4 bg-gray-100 rounded-lg text-center"></div>`;
+        }
         
-        const systemPrompt = "당신은 여성 의류 쇼핑몰의 데이터를 전문적으로 분석하는 최고 수준의 데이터 분석가입니다. 당신의 임무는 주어진 원시 데이터를 바탕으로, 경영진이 비즈니스 전략을 수립하는 데 도움이 될 만한 깊이 있는 통찰력과 실행 가능한 제안을 도출하는 것입니다. 추가적으로, 최근 데이터의 흐름과 요일별 패턴을 종합하여 향후 며칠간의 주문량 증감 추세를 예측해야 합니다. 분석은 반드시 다음 항목들을 포함해야 하며, 전문적이면서도 이해하기 쉬운 언어로 설명해야 합니다. 보고서는 항상 한국어로 작성해주세요.";
-        const userQuery = `
-        아래는 우리 쇼핑몰의 과거 판매 데이터입니다. 이 데이터를 심층적으로 분석하여 비즈니스 인사이트 보고서를 작성해주세요.
+        // --- Gemini AI Function ---
+        async function generateWorkPlan(dayId) {
+            aiReportModal.classList.remove('hidden');
+            aiReportContent.innerHTML = '<div class="flex justify-center items-center h-full"><svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-4 text-gray-700">AI가 보고서를 작성하고 있습니다...</span></div>';
 
-        **분석 데이터:**
-        ${JSON.stringify(historicalData.map(d => ({...d, date: d.date.toISOString().split('T')[0]})))}
-
-        **보고서 필수 포함 항목:**
-        1.  **전반적인 판매 동향 분석:** 최근 데이터에 가중치를 두어 전체적인 주문량 및 배송량의 성장, 정체, 또는 하락 추세를 분석해주세요.
-        2.  **요일별 패턴 심층 분석:** 어떤 요일에 주문이 가장 많고 적은지, 그리고 그 이유는 무엇일지 추론해주세요.
-        3.  **이벤트 효과 분석:** '프로모션'과 '제작입고' 이벤트가 주문량 및 배송량에 미치는 영향을 수치적으로 분석하고, 그 효과를 평가해주세요.
-        4.  **주기성 및 계절성 분석 (예비):** 현재 데이터 양으로 파악할 수 있는 월별 또는 계절적 패턴이 있는지 예비 분석을 제공해주세요. (데이터가 1년 미만일 경우, 더 정확한 분석을 위해 1년 이상의 데이터가 필요하다고 언급해주세요.)
-        5.  **전략적 제안:** 위 분석 내용을 바탕으로, 앞으로의 재고 관리, 인력 운영, 마케팅 전략에 대해 실행 가능한 2~3가지 구체적인 제안을 해주세요.
-        6.  **향후 단기 전망:** 위 모든 분석을 종합하여, 향후 3~5일 동안 주문량이 증가할 것으로 예상되는지, 또는 감소할 것으로 예상되는지 그 이유와 함께 간결하게 전망해주세요.
-        `;
-
-        const apiKey = "AIzaSyCVqaGpAA_YW5y8pUiiiXNohS6XqEbyv1A";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-        try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: userQuery }] }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] },
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`API call failed with status: ${response.status}`);
+            const date = new Date();
+            if (dayId === 'tomorrow') {
+                date.setDate(date.getDate() + 1);
             }
+            const dateString = date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 
-            const result = await response.json();
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            const container = document.getElementById(dayId);
+            const totalTimeText = container.querySelector('.summary-container .text-blue-600').textContent;
+            const statusText = (container.querySelector('.summary-container .text-red-600') || container.querySelector('.summary-container .text-green-600')).textContent;
 
-            if (text) {
-                aiAnalysisContent.innerHTML = text.replace(/\n/g, '<br>');
-            } else {
-                aiAnalysisContent.textContent = 'AI로부터 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요.';
+            const dateKey = (dayId === 'today') ? new Date().toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0];
+            const prediction = predictionLog[dateKey];
+
+            const deliveryTimeText = container.querySelector('.calculator-card[data-task-type="delivery"] .result-time').textContent;
+            const forwardingWorkload = container.querySelector('.calculator-card[data-task-type="forwarding"] .workload').value || '0';
+            const forwardingTimeText = container.querySelector('.calculator-card[data-task-type="forwarding"] .result-time').textContent;
+            const warehousingWorkload = container.querySelector('.calculator-card[data-task-type="warehousing"] .workload').value || '0';
+            const warehousingTimeText = container.querySelector('.calculator-card[data-task-type="warehousing"] .result-time').textContent;
+
+            const systemPrompt = "당신은 온라인 여성 의류 쇼핑몰의 유능하고 효율적인 물류팀장입니다. 우리 팀의 업무 규칙을 명확히 이해하고 계획을 작성해야 합니다. **근무 시간:** 08:30 ~ 17:30. **점심 시간:** 12:30 ~ 13:30 (이 시간 동안 모든 업무 중단). **업무 개념:** '배송'은 일반적인 피킹, 포장, 발송 전체를 의미하는 핵심 업무이며, 예측된 배송량을 처리합니다. '직진배송'은 이와는 완전히 별개의 빠른 배송 업무입니다. '제작입고'는 상품 입고 업무입니다. **업무 순서 및 방식:** 모든 업무는 순차적으로 진행되며, 일반적인 순서는 [오전 배송 -> 제작입고 (있는 경우) -> 직진배송 -> 오후 배송] 입니다. '배송' 업무는 오전에 전체 물량의 약 45%를 처리하고, 오후에 나머지 물량을 나눠서 처리합니다. **중요 규칙:** 만약 특정 업무가 점심시간 전에 시작되었으나 끝나지 않았다면, 12:30에 중단하고 13:30에 이어서 계속 진행한 후 다음 업무로 넘어갑니다. 주어진 각 업무의 '예상 소요 시간'을 반드시 반영하여 현실적인 작업 타임라인을 분 단위로 계산해주세요. 이 모든 정보를 바탕으로, 실제 현장에서 바로 사용할 수 있는 간결하고 명확한 '일일 업무 계획서'를 작성해주세요. 보고서는 항상 한국어로 작성해주세요.";
+            const userQuery = `
+            아래 데이터를 바탕으로 ${dateString}의 '일일 업무 계획서'를 작성해주세요.
+
+            **핵심 데이터:**
+            - 예측 배송 업무량 (전체): ${prediction.deliveries}건
+            - 직진배송 업무량: ${forwardingWorkload}건
+            - 제작입고 업무량: ${warehousingWorkload}건
+            - 총 예상 소요 시간: ${totalTimeText}
+            - 업무 시간 상태: ${statusText}
+
+            **각 업무별 예상 소요 시간:**
+            - 배송(전체): ${deliveryTimeText}
+            - 직진배송: ${forwardingTimeText}
+            - 제작입고: ${warehousingTimeText}
+
+            **계획서 필수 포함 항목:**
+            1.  **핵심 목표 (Key Goals)**: 오늘의 처리해야 할 가장 중요한 목표 수치를 2~3줄로 요약.
+            2.  **작업 타임라인 (Work Timeline)**: 근무 시간(08:30-17:30)과 점심시간(12:30-13:30)을 엄격히 준수하고, [오전 배송 -> 제작입고(있는 경우) -> 직진배송 -> 오후 배송] 순서에 따라, 각 작업의 예상 시작/종료 시간, 주요 내용, 담당 인원을 명확하게 명시. 특히 배송 업무는 오전(약 45%)과 오후로 나누어 계획하고, 점심시간에 걸치는 업무는 중단 후 재개하는 것을 반영해주세요.
+            3.  **주요 지시사항 (Key Instructions)**: 예상되는 문제점이나 팀원들이 특별히 신경 써야 할 부분을 2~3가지 항목으로 간결하게 지시.
+
+            **작성 스타일:**
+            - 보고서의 서론, 결론, 격려 메시지 등은 제외하고, 실제 업무 지시에 필요한 내용만 간결하게 작성해주세요.
+            - 각 항목은 명확하게 구분하고, 팀원들이 바로 이해할 수 있도록 직설적으로 작성해주세요.
+            `;
+
+            const apiKey = ""; // API Key removed for security
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API call failed with status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    aiReportContent.innerHTML = text.replace(/\n/g, '<br>');
+                } else {
+                    aiReportContent.textContent = 'AI로부터 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요.';
+                }
+
+            } catch (error) {
+                console.error('Error generating AI report:', error);
+                aiReportContent.textContent = `오류가 발생했습니다: ${error.message}`;
             }
-
-        } catch (error) {
-            console.error('Error generating AI analysis:', error);
-            aiAnalysisContent.textContent = `오류가 발생했습니다: ${error.message}`;
         }
-    }
+
+        // --- Gemini AI Advanced Analysis ---
+        async function generateAdvancedAnalysis() {
+            aiAnalysisModal.classList.remove('hidden');
+            aiAnalysisContent.innerHTML = '<div class="flex justify-center items-center h-full"><svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-4 text-gray-700">AI가 데이터를 심층 분석하고 있습니다...</span></div>';
+            
+            const systemPrompt = "당신은 여성 의류 쇼핑몰의 데이터를 전문적으로 분석하는 최고 수준의 데이터 분석가입니다. 당신의 임무는 주어진 원시 데이터를 바탕으로, 경영진이 비즈니스 전략을 수립하는 데 도움이 될 만한 깊이 있는 통찰력과 실행 가능한 제안을 도출하는 것입니다. 추가적으로, 최근 데이터의 흐름과 요일별 패턴을 종합하여 향후 며칠간의 주문량 증감 추세를 예측해야 합니다. 분석은 반드시 다음 항목들을 포함해야 하며, 전문적이면서도 이해하기 쉬운 언어로 설명해야 합니다. 보고서는 항상 한국어로 작성해주세요.";
+            const userQuery = `
+            아래는 우리 쇼핑몰의 과거 판매 데이터입니다. 이 데이터를 심층적으로 분석하여 비즈니스 인사이트 보고서를 작성해주세요.
+
+            **분석 데이터:**
+            ${JSON.stringify(historicalData.map(d => ({...d, date: d.date.split('T')[0]})))}
+
+            **보고서 필수 포함 항목:**
+            1.  **전반적인 판매 동향 분석:** 최근 데이터에 가중치를 두어 전체적인 주문량 및 배송량의 성장, 정체, 또는 하락 추세를 분석해주세요.
+            2.  **요일별 패턴 심층 분석:** 어떤 요일에 주문이 가장 많고 적은지, 그리고 그 이유는 무엇일지 추론해주세요.
+            3.  **이벤트 효과 분석:** '프로모션'과 '제작입고' 이벤트가 주문량 및 배송량에 미치는 영향을 수치적으로 분석하고, 그 효과를 평가해주세요.
+            4.  **주기성 및 계절성 분석 (예비):** 현재 데이터 양으로 파악할 수 있는 월별 또는 계절적 패턴이 있는지 예비 분석을 제공해주세요. (데이터가 1년 미만일 경우, 더 정확한 분석을 위해 1년 이상의 데이터가 필요하다고 언급해주세요.)
+            5.  **전략적 제안:** 위 분석 내용을 바탕으로, 앞으로의 재고 관리, 인력 운영, 마케팅 전략에 대해 실행 가능한 2~3가지 구체적인 제안을 해주세요.
+            6.  **향후 단기 전망:** 위 모든 분석을 종합하여, 향후 3~5일 동안 주문량이 증가할 것으로 예상되는지, 또는 감소할 것으로 예상되는지 그 이유와 함께 간결하게 전망해주세요.
+            `;
+
+            const apiKey = ""; // API Key removed for security
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API call failed with status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    aiAnalysisContent.innerHTML = text.replace(/\n/g, '<br>');
+                } else {
+                    aiAnalysisContent.textContent = 'AI로부터 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요.';
+                }
+
+            } catch (error) {
+                console.error('Error generating AI analysis:', error);
+                aiAnalysisContent.textContent = `오류가 발생했습니다: ${error.message}`;
+            }
+        }
 
 
-    // --- Modal Data Handling ---
-    function renderDataModal(dataToRender = null) {
-        const data = dataToRender || historicalData.slice(0, 30);
-        const container = document.getElementById('data-input-grid-container');
-        const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-        let gridHTML = `<div class="grid grid-cols-6 gap-x-4 gap-y-2 text-sm text-center font-semibold data-grid-header py-2 border-b"> <div>날짜</div> <div>주문량</div> <div>배송량</div> <div>프로모션</div> <div>휴일</div> <div>제작입고</div> </div>`;
-        data.forEach(d => {
-            const date = d.date;
-            const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-            const dayName = dayNames[date.getDay()];
-            gridHTML += `<div class="grid grid-cols-6 gap-x-4 items-center py-2 border-b border-gray-100" data-date="${dateString}"><div class="text-center text-xs">${dateString} (${dayName})</div><div><input type="number" value="${d.orders}" class="w-full p-1.5 border rounded-md text-center"></div> <div><input type="number" value="${d.deliveries}" class="w-full p-1.5 border rounded-md text-center"></div><div class="text-center"><input type="checkbox" ${d.events.promotion ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.holiday ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.warehousing ? 'checked' : ''} class="event-checkbox h-5 w-5"></div></div>`;
-        });
-        container.innerHTML = gridHTML;
-    }
-    function readDataFromModal() { const rows = document.querySelectorAll('#data-input-grid-container > div[data-date]'); return Array.from(rows).map(row => { const inputs = row.querySelectorAll('input'); return { date: new Date(row.dataset.date), orders: parseInt(inputs[0].value, 10) || 0, deliveries: parseInt(inputs[1].value, 10) || 0, events: { promotion: inputs[2].checked, holiday: inputs[3].checked, warehousing: inputs[4].checked, } }; }).sort((a, b) => b.date - a.date); }
-    function getFutureEvents() { const getEvents = (container) => { const cbs = container.querySelectorAll('input[type="checkbox"]'); return { promotion: cbs[0].checked, holiday: cbs[1].checked, warehousing: cbs[2].checked }; }; return { today: getEvents(document.querySelector('#futureEvents div[data-day="today"]')), tomorrow: getEvents(document.querySelector('#futureEvents div[data-day="tomorrow"]')) }; }
+        // --- Modal Data Handling ---
+        function renderDataModal(dataToRender = null) {
+            const dataWithDateObjects = dataToRender || historicalData.map(d => ({...d, date: new Date(d.date)})).slice(0, 30);
+            const container = document.getElementById('data-input-grid-container');
+            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+            let gridHTML = `<div class="grid grid-cols-6 gap-x-4 gap-y-2 text-sm text-center font-semibold data-grid-header py-2 border-b"> <div>날짜</div> <div>주문량</div> <div>배송량</div> <div>프로모션</div> <div>휴일</div> <div>제작입고</div> </div>`;
+            dataWithDateObjects.forEach(d => {
+                const date = d.date;
+                const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                const dayOfWeek = date.getDay();
+                const dayName = dayNames[dayOfWeek];
+                let dayClass = '';
+                if (dayOfWeek === 0) dayClass = 'bg-red-50 text-red-700'; // Sunday
+                if (dayOfWeek === 6) dayClass = 'bg-blue-50 text-blue-700'; // Saturday
+                gridHTML += `<div class="grid grid-cols-6 gap-x-4 items-center py-2 border-b border-gray-100 ${dayClass}" data-date="${dateString}"><div class="text-center text-xs font-semibold">${dateString} (${dayName})</div><div><input type="number" value="${d.orders}" class="w-full p-1.5 border rounded-md text-center"></div> <div><input type="number" value="${d.deliveries}" class="w-full p-1.5 border rounded-md text-center"></div><div class="text-center"><input type="checkbox" ${d.events.promotion ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.holiday ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.warehousing ? 'checked' : ''} class="event-checkbox h-5 w-5"></div></div>`;
+            });
+            container.innerHTML = gridHTML;
+        }
+        function readDataFromModal() { const rows = document.querySelectorAll('#data-input-grid-container > div[data-date]'); return Array.from(rows).map(row => { const inputs = row.querySelectorAll('input'); return { date: new Date(row.dataset.date), orders: parseInt(inputs[0].value, 10) || 0, deliveries: parseInt(inputs[1].value, 10) || 0, events: { promotion: inputs[2].checked, holiday: inputs[3].checked, warehousing: inputs[4].checked, } }; }).sort((a, b) => b.date - a.date); }
+        function getFutureEvents() { const getEvents = (container) => { const cbs = container.querySelectorAll('input[type="checkbox"]'); return { promotion: cbs[0].checked, holiday: cbs[1].checked, warehousing: cbs[2].checked }; }; return { today: getEvents(document.querySelector('#futureEvents div[data-day="today"]')), tomorrow: getEvents(document.querySelector('#futureEvents div[data-day="tomorrow"]')) }; }
 
-    // --- Auto-run on page load ---
-    initialize();
-});
-</script>
+        // --- Auto-run on page load ---
+        initializeUI();
+        initializeFirebase();
+    </script>
 
 </body>
 </html>
