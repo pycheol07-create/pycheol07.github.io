@@ -1324,7 +1324,6 @@
 
             const dateKey = (dayId === 'today') ? new Date().toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0];
             const prediction = predictionLog[dateKey];
-            const dayWeather = (dayId === 'today') ? futureEvents.today.weather : futureEvents.tomorrow.weather;
 
             const deliveryTimeText = container.querySelector('.calculator-card[data-task-type="delivery"] .result-time').textContent;
             const forwardingWorkload = container.querySelector('.calculator-card[data-task-type="forwarding"] .workload').value || '0';
@@ -1337,7 +1336,6 @@
             아래 데이터를 바탕으로 ${dateString}의 '일일 업무 계획서'를 작성해주세요.
 
             **핵심 데이터:**
-            - 날씨: ${dayWeather}
             - 예측 배송 업무량 (전체): ${prediction.deliveries}건
             - 직진배송 업무량: ${forwardingWorkload}건
             - 제작입고 업무량: ${warehousingWorkload}건
@@ -1357,14 +1355,14 @@
             - 근무 시간(08:30-17:30)과 점심시간(12:30-13:30)을 엄격히 준수하고, [오전 배송 -> 제작입고(있는 경우) -> 직진배송 -> 오후 배송] 순서에 따라, 각 작업의 예상 시작/종료 시간, 주요 내용, 담당 인원을 명확하게 명시. 특히 배송 업무는 오전(약 45%)과 오후로 나누어 계획하고, 점심시간에 걸치는 업무는 중단 후 재개하는 것을 반영해주세요.
             
             ### 주요 지시사항 (Key Instructions)
-            - 예상되는 문제점이나 팀원들이 특별히 신경 써야 할 부분을 2~3가지 항목으로 간결하게 지시. 오늘의 날씨(${dayWeather})를 고려하여 특별히 주의해야 할 점이 있다면 포함해주세요. (예: 비 오는 날 상품 포장 주의)
+            - 예상되는 문제점이나 팀원들이 특별히 신경 써야 할 부분을 2~3가지 항목으로 간결하게 지시. 
 
             **작성 스타일:**
             - 보고서의 서론, 결론, 격려 메시지 등은 제외하고, 실제 업무 지시에 필요한 내용만 간결하게 작성해주세요.
             - 마크다운을 사용하여 각 항목을 명확하게 구분하고, 팀원들이 바로 이해할 수 있도록 직설적으로 작성해주세요.
             `;
 
-            const apiKey = "";
+            const apiKey = ""; 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             try {
@@ -1527,7 +1525,7 @@
         }
 
         async function fetchAndUpdateWeatherData() {
-            const dataToUpdate = historicalData.filter(d => !d.weather);
+            const dataToUpdate = historicalData.filter(d => d.weather === undefined);
             if (dataToUpdate.length === 0) {
                 console.log("All weather data is up to date.");
                 return;
