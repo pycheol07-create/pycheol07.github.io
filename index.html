@@ -41,6 +41,21 @@
         details > summary::-webkit-details-marker { display: none; }
         details[open] summary svg { transform: rotate(180deg); }
         .prose { white-space: pre-wrap; }
+        .prose h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .prose p {
+            line-height: 1.6;
+        }
+        .prose strong {
+            color: #111827;
+        }
         .toast {
             opacity: 0;
             transform: translateX(calc(100% + 1.25rem)); /* 1.25rem is right-5 */
@@ -107,7 +122,7 @@
                             </div>
                         </div>
                         <div class="p-3 bg-gray-50 rounded-lg">
-                            <label class="font-medium text-sm text-gray-800">내일 이벤트</label>
+                             <label class="font-medium text-sm text-gray-800">내일 이벤트</label>
                              <div class="flex items-center space-x-4 mt-2 text-sm" data-day="tomorrow">
                                 <label class="flex items-center">
                                     <input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">프로모션
@@ -216,7 +231,7 @@
     
     <!-- Data Input Modal -->
     <div id="dataModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 modal-backdrop flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl transform transition-all flex flex-col h-[90vh]" role="dialog">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-5xl transform transition-all flex flex-col h-[90vh]" role="dialog">
             <div class="p-5 border-b flex justify-between items-center">
                 <h3 class="text-lg font-semibold text-gray-900">과거 데이터 관리</h3>
                 <button id="closeDataModalBtn" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
@@ -325,9 +340,9 @@
     
     <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
         // --- DOM Elements ---
         const predictionResultDiv = document.getElementById('predictionResult');
@@ -377,7 +392,8 @@
 
         // --- Firebase Variables ---
         let db, auth;
-        let currentAppId = "public-work-forecast-session-v3"; // A single public ID for all users
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'public-work-forecast-session-v3';
+        let currentAppId;
         let unsubscribe; // To detach the real-time listener
 
         // --- State Variables ---
@@ -390,35 +406,35 @@
 
         // --- Default Data (if localStorage is empty) ---
         const defaultHistoricalData = [
-            { date: "2025-10-01", orders: 997, deliveries: 1056, events: { promotion: false, holiday: false, warehousing: false } },
-            { date: "2025-09-30", orders: 1047, deliveries: 1042, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-29", orders: 1029, deliveries: 1366, events: { promotion: true, holiday: false, warehousing: false } },
-            { date: "2025-09-28", orders: 960, deliveries: 657, events: { promotion: false, holiday: true, warehousing: false } },
-            { date: "2025-09-27", orders: 652, deliveries: 483, events: { promotion: false, holiday: true, warehousing: false } },
-            { date: "2025-09-26", orders: 725, deliveries: 870, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-25", orders: 931, deliveries: 948, events: { promotion: false, holiday: false, warehousing: false } },
-            { date: "2025-09-24", orders: 1108, deliveries: 1230, events: { promotion: true, holiday: false, warehousing: true } },
-            { date: "2025-09-23", orders: 1219, deliveries: 1359, events: { promotion: true, holiday: false, warehousing: true } },
-            { date: "2025-09-22", orders: 1218, deliveries: 1263, events: { promotion: true, holiday: false, warehousing: false } },
-            { date: "2025-09-21", orders: 1085, deliveries: 708, events: { promotion: false, holiday: true, warehousing: false } },
-            { date: "2025-09-20", orders: 704, deliveries: 519, events: { promotion: false, holiday: true, warehousing: false } },
-            { date: "2025-09-19", orders: 818, deliveries: 921, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-18", orders: 906, deliveries: 890, events: { promotion: false, holiday: false, warehousing: false } },
-            { date: "2025-09-17", orders: 932, deliveries: 1076, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-16", orders: 1046, deliveries: 1007, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-15", orders: 940, deliveries: 995, events: { promotion: false, holiday: false, warehousing: false } },
-            { date: "2025-09-14", orders: 824, deliveries: 548, events: { promotion: false, holiday: true, warehousing: false } },
-            { date: "2025-09-13", orders: 554, deliveries: 371, events: { promotion: false, holiday: true, warehousing: false } },
-            { date: "2025-09-12", orders: 559, deliveries: 707, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-11", orders: 805, deliveries: 925, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-10", orders: 867, deliveries: 850, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-09", orders: 963, deliveries: 861, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-08", orders: 813, deliveries: 900, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-07", orders: 708, deliveries: 507, events: { promotion: false, holiday: true, warehousing: false } },
-            { date: "2025-09-06", orders: 515, deliveries: 408, events: { promotion: false, holiday: true, warehousing: false } },
-            { date: "2025-09-05", orders: 569, deliveries: 582, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-04", orders: 653, deliveries: 722, events: { promotion: false, holiday: false, warehousing: true } },
-            { date: "2025-09-03", orders: 777, deliveries: 819, events: { promotion: false, holiday: false, warehousing: false } }
+            { date: "2025-10-01", orders: 997, deliveries: 1056, events: { promotion: false, holiday: false, warehousing: false }},
+            { date: "2025-09-30", orders: 1047, deliveries: 1042, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-29", orders: 1029, deliveries: 1366, events: { promotion: true, holiday: false, warehousing: false }},
+            { date: "2025-09-28", orders: 960, deliveries: 657, events: { promotion: false, holiday: true, warehousing: false }},
+            { date: "2025-09-27", orders: 652, deliveries: 483, events: { promotion: false, holiday: true, warehousing: false }},
+            { date: "2025-09-26", orders: 725, deliveries: 870, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-25", orders: 931, deliveries: 948, events: { promotion: false, holiday: false, warehousing: false }},
+            { date: "2025-09-24", orders: 1108, deliveries: 1230, events: { promotion: true, holiday: false, warehousing: true }},
+            { date: "2025-09-23", orders: 1319, deliveries: 1359, events: { promotion: true, holiday: false, warehousing: true }},
+            { date: "2025-09-22", orders: 1218, deliveries: 1263, events: { promotion: true, holiday: false, warehousing: false }},
+            { date: "2025-09-21", orders: 1085, deliveries: 708, events: { promotion: false, holiday: true, warehousing: false }},
+            { date: "2025-09-20", orders: 704, deliveries: 519, events: { promotion: false, holiday: true, warehousing: false }},
+            { date: "2025-09-19", orders: 818, deliveries: 921, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-18", orders: 906, deliveries: 890, events: { promotion: false, holiday: false, warehousing: false }},
+            { date: "2025-09-17", orders: 1032, deliveries: 1076, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-16", orders: 1046, deliveries: 1007, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-15", orders: 940, deliveries: 995, events: { promotion: false, holiday: false, warehousing: false }},
+            { date: "2025-09-14", orders: 824, deliveries: 548, events: { promotion: false, holiday: true, warehousing: false }},
+            { date: "2025-09-13", orders: 554, deliveries: 371, events: { promotion: false, holiday: true, warehousing: false }},
+            { date: "2025-09-12", orders: 559, deliveries: 707, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-11", orders: 805, deliveries: 925, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-10", orders: 867, deliveries: 850, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-09", orders: 963, deliveries: 861, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-08", orders: 913, deliveries: 900, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-07", orders: 708, deliveries: 507, events: { promotion: false, holiday: true, warehousing: false }},
+            { date: "2025-09-06", orders: 515, deliveries: 408, events: { promotion: false, holiday: true, warehousing: false }},
+            { date: "2025-09-05", orders: 569, deliveries: 582, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-04", orders: 653, deliveries: 722, events: { promotion: false, holiday: false, warehousing: true }},
+            { date: "2025-09-03", orders: 777, deliveries: 819, events: { promotion: false, holiday: false, warehousing: false }}
         ];
 
         // --- Utility Functions ---
@@ -470,18 +486,16 @@
         // --- Firebase Setup ---
         async function initializeFirebase() {
             try {
-                // ===================================================================================
-                // 사용자님의 Firebase 프로젝트 구성 정보가 여기에 올바르게 배치되었습니다.
-                // ===================================================================================
-                const firebaseConfig = {
-                    apiKey: "AIzaSyBxmX7fEISWYs_JGktAZrFjdb8cb_ZcmSY",
-                    authDomain: "work-tool-e2943.firebaseapp.com",
-                    projectId: "work-tool-e2943",
-                    storageBucket: "work-tool-e2943.appspot.com",
-                    messagingSenderId: "133294945093",
-                    appId: "1:133294945093:web:cde90aab6716127512842c",
-                    measurementId: "G-ZZQLKB0057"
-                };
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+                if (!firebaseConfig.apiKey) {
+                    console.error("Firebase config is missing or invalid.");
+                    showToast("Firebase 설정이 올바르지 않습니다.", "error");
+                    connectionStatus.textContent = "설정 오류";
+                    statusIndicator.classList.remove('bg-gray-400');
+                    statusIndicator.classList.add('bg-red-500');
+                    return;
+                }
 
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
@@ -490,12 +504,15 @@
                 onAuthStateChanged(auth, user => {
                     if (user) {
                         console.log("Authenticated with UID:", user.uid);
-                        // All users connect to a single public data document
-                        connectToTeamData(currentAppId); 
+                        connectToTeamData(appId); 
                     }
                 });
                 
-                await signInAnonymously(auth);
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
 
             } catch (error) {
                 console.error("Firebase initialization error:", error);
@@ -506,17 +523,17 @@
             }
         }
 
-        function connectToTeamData(appId) {
+        function connectToTeamData(appIdToConnect) {
             if (unsubscribe) {
                 unsubscribe();
             }
             
-            currentAppId = appId;
+            currentAppId = appIdToConnect;
             connectionStatus.textContent = `연결 중...`;
             statusIndicator.classList.remove('bg-gray-400', 'bg-green-500', 'bg-red-500');
             statusIndicator.classList.add('bg-yellow-500', 'animate-pulse');
             
-            const docRef = doc(db, "artifacts", currentAppId, "public/data");
+            const docRef = doc(db, "artifacts", currentAppId, "public/data/shared_state/singleton");
 
             unsubscribe = onSnapshot(docRef, (docSnap) => {
                 connectionStatus.textContent = "동기화연결";
@@ -547,7 +564,12 @@
             let lastDate = new Date(historicalData[0].date);
             while (lastDate < todayDateOnly) {
                 lastDate.setDate(lastDate.getDate() + 1);
-                historicalData.unshift({ date: new Date(lastDate).toISOString(), orders: 0, deliveries: 0, events: { promotion: false, holiday: false, warehousing: false } });
+                historicalData.unshift({ 
+                    date: new Date(lastDate).toISOString(), 
+                    orders: 0, 
+                    deliveries: 0, 
+                    events: { promotion: false, holiday: false, warehousing: false },
+                });
             }
         }
         
@@ -556,12 +578,16 @@
         }
 
         // --- Event Listeners ---
-        openDataModalBtn.addEventListener('click', () => { renderDataModal(); dataModal.classList.remove('hidden'); });
+        openDataModalBtn.addEventListener('click', async () => { 
+            await fetchAndUpdateWeatherData();
+            renderDataModal(); 
+            dataModal.classList.remove('hidden'); 
+        });
         closeDataModalBtn.addEventListener('click', () => dataModal.classList.add('hidden'));
         dataModal.addEventListener('click', (e) => e.target === dataModal && dataModal.classList.add('hidden'));
         applyDataBtn.addEventListener('click', () => { const newDataArray = readDataFromModal(); learnFromNewData(newDataArray); historicalData = newDataArray.map(d => ({...d, date: d.date.toISOString()})); saveDataToFirestore(); dataModal.classList.add('hidden'); });
         runPredictionBtn.addEventListener('click', handleAnalysis);
-        document.querySelectorAll('.future-event-cb').forEach(cb => cb.addEventListener('change', handleAnalysis));
+        document.querySelectorAll('.future-event-cb').forEach(el => el.addEventListener('change', handleAnalysis));
         tabButtons.forEach(button => { button.addEventListener('click', () => { tabButtons.forEach(btn => btn.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active')); button.classList.add('active'); document.getElementById(button.dataset.tab).classList.add('active'); }); });
         
         document.getElementById('calculatorWrapper').addEventListener('input', (e) => { if (e.target.classList.contains('calculator-input')) { const card = e.target.closest('.calculator-card'); if (card) { calculateAndDisplayTime(card); saveDataToFirestore(); } } });
@@ -667,7 +693,8 @@
         document.getElementById('calculatorWrapper').addEventListener('click', (e) => {
             if (e.target.classList.contains('generate-ai-report')) {
                 const dayId = e.target.dataset.day;
-                generateWorkPlan(dayId);
+                const futureEvents = getFutureEvents();
+                generateWorkPlan(dayId, futureEvents);
             }
         });
 
@@ -719,7 +746,7 @@
             const LOGGER_APP_ID = "team-work-logger-v1";
 
             try {
-                const historyCollectionRef = collection(db, "artifacts", LOGGER_APP_ID, "history");
+                const historyCollectionRef = collection(db, "artifacts", LOGGER_APP_ID, "public/data/history");
                 const querySnapshot = await getDocs(historyCollectionRef);
                 
                 if (querySnapshot.empty) {
@@ -775,11 +802,30 @@
                 const forwardingThroughput = calculateThroughput('직진배송');
                 const warehousingThroughput = calculateThroughput('중국제작');
                 
-                if (deliveryThroughput !== null) document.getElementById('rate-delivery').value = deliveryThroughput;
-                if (forwardingThroughput !== null) document.getElementById('rate-forwarding').value = forwardingThroughput;
-                if (warehousingThroughput !== null) document.getElementById('rate-warehousing').value = warehousingThroughput;
+                let updated = false;
+                if (deliveryThroughput !== null) {
+                    taskThroughputs.delivery = parseFloat(deliveryThroughput);
+                    document.getElementById('rate-delivery').value = taskThroughputs.delivery;
+                    updated = true;
+                }
+                if (forwardingThroughput !== null) {
+                    taskThroughputs.forwarding = parseFloat(forwardingThroughput);
+                    document.getElementById('rate-forwarding').value = taskThroughputs.forwarding;
+                    updated = true;
+                }
+                if (warehousingThroughput !== null) {
+                    taskThroughputs.warehousing = parseFloat(warehousingThroughput);
+                    document.getElementById('rate-warehousing').value = taskThroughputs.warehousing;
+                    updated = true;
+                }
 
-                showToast(`최근 주(${latestWeekKey})의 평균 처리량을 불러왔습니다.`, 'success');
+                if (updated) {
+                    saveDataToFirestore();
+                    recalculateAllCards();
+                    showToast(`최근 주(${latestWeekKey})의 평균 처리량을 불러왔습니다.`, 'success');
+                } else {
+                    showToast('업데이트할 처리량 데이터가 없습니다.', 'info');
+                }
 
             } catch (error) {
                 console.error("Error fetching average throughput:", error);
@@ -875,10 +921,20 @@
             let weightedOrderSum = 0, orderTotalWeight = 0;
             orderBaseSource.forEach((d, i) => { const weight = orderBaseSource.length - i; weightedOrderSum += d.orders * weight; orderTotalWeight += weight; });
             let predictedOrders = orderTotalWeight > 0 ? weightedOrderSum / orderTotalWeight : 0;
-            const multipliers = { promotion: calculateMultiplier(data, 'promotion'), holiday: calculateMultiplier(data, 'holiday'), warehousing: calculateMultiplier(data, 'warehousing') };
+            
+            const multipliers = { 
+                promotion: calculateMultiplier(data, 'events', 'promotion'), 
+                holiday: calculateMultiplier(data, 'events', 'holiday'), 
+                warehousing: calculateMultiplier(data, 'events', 'warehousing'),
+                rain: calculateMultiplier(data, 'weather', '비'),
+                snow: calculateMultiplier(data, 'weather', '눈')
+            };
+
             if (futureEvents.promotion) { predictedOrders *= multipliers.promotion.orders; }
             if (futureEvents.holiday) { predictedOrders *= multipliers.holiday.orders; }
             if (futureEvents.warehousing) { predictedOrders *= multipliers.warehousing.orders; }
+            if (futureEvents.weather === '비') { predictedOrders *= multipliers.rain.orders; }
+            if (futureEvents.weather === '눈') { predictedOrders *= multipliers.snow.orders; }
             predictedOrders *= adjustmentFactors.dayOfWeek[targetDay].orders;
             
             let predictedDeliveries;
@@ -953,11 +1009,26 @@
             return totalWeight > 0 ? totalWeightedRatio / totalWeight : 1;
         }
 
-        function calculateMultiplier(data, eventType) { const eventDays = data.filter(d => d.events[eventType]); const nonEventDays = data.filter(d => !d.events[eventType]); if (eventDays.length < 2 || nonEventDays.length < 2) return { orders: 1, deliveries: 1 }; const avgEventOrders = eventDays.reduce((sum, d) => sum + d.orders, 0) / eventDays.length; const avgNonEventOrders = nonEventDays.reduce((sum, d) => sum + d.orders, 0) / nonEventDays.length; const avgEventDeliveries = eventDays.reduce((sum, d) => sum + d.deliveries, 0) / eventDays.length; const avgNonEventDeliveries = nonEventDays.reduce((sum, d) => sum + d.deliveries, 0) / nonEventDays.length; return { orders: avgNonEventOrders === 0 ? 1 : avgEventOrders / avgNonEventOrders, deliveries: avgNonEventDeliveries === 0 ? 1 : avgEventDeliveries / avgNonEventDeliveries }; }
+        function calculateMultiplier(data, type, key, value = true) {
+            const eventDays = data.filter(d => d[type] && d[type][key] === value);
+            const nonEventDays = data.filter(d => d[type] && d[type][key] !== value);
+
+            if (eventDays.length < 2 || nonEventDays.length < 2) return { orders: 1, deliveries: 1 };
+            
+            const avgEventOrders = eventDays.reduce((sum, d) => sum + d.orders, 0) / eventDays.length;
+            const avgNonEventOrders = nonEventDays.reduce((sum, d) => sum + d.orders, 0) / nonEventDays.length;
+            const avgEventDeliveries = eventDays.reduce((sum, d) => sum + d.deliveries, 0) / eventDays.length;
+            const avgNonEventDeliveries = nonEventDays.reduce((sum, d) => sum + d.deliveries, 0) / nonEventDays.length;
+            
+            return { 
+                orders: avgNonEventOrders === 0 ? 1 : avgEventOrders / avgNonEventOrders, 
+                deliveries: avgNonEventDeliveries === 0 ? 1 : avgEventDeliveries / avgNonEventDeliveries 
+            };
+        }
         
         function getAveragePromotionIncrease() {
             const dataWithDateObjects = historicalData.map(d => ({...d, date: new Date(d.date)}));
-            const multiplier = calculateMultiplier(dataWithDateObjects, 'promotion');
+            const multiplier = calculateMultiplier(dataWithDateObjects, 'events', 'promotion');
             const increaseRate = Math.round((multiplier.orders - 1) * 100);
             return increaseRate > 0 ? increaseRate : 80; // Fallback to 80 if no data or negative effect
         }
@@ -971,8 +1042,8 @@
 
             if (dataWithDateObjects.length < 7) return; 
 
-            const promoMultiplier = calculateMultiplier(dataWithDateObjects, 'promotion');
-            const warehousingMultiplier = calculateMultiplier(dataWithDateObjects, 'warehousing');
+            const promoMultiplier = calculateMultiplier(dataWithDateObjects, 'events', 'promotion');
+            const warehousingMultiplier = calculateMultiplier(dataWithDateObjects, 'events', 'warehousing');
 
             const formatPercentage = (multiplier) => {
                 if (multiplier === 1) return '';
@@ -1048,7 +1119,7 @@
         // --- Data Persistence (Firestore) ---
         async function saveDataToFirestore() {
             if (!currentAppId || !auth.currentUser) return;
-            const docRef = doc(db, "artifacts", currentAppId, "public/data");
+            const docRef = doc(db, "artifacts", currentAppId, "public/data/shared_state/singleton");
             
             const stateToSave = {
                 historicalData,
@@ -1221,7 +1292,23 @@
         }
         
         // --- Gemini AI Function ---
-        async function generateWorkPlan(dayId) {
+        function formatAiResponse(text) {
+            let html = text
+                .replace(/### (.*?)\n/g, '<h3 class="text-xl font-bold text-gray-800 mt-6 mb-3">$1</h3>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n- /g, '\n<p class="ml-4">- ');
+
+            html = html.split('\n').map(p => {
+                if (p.trim() === '' || p.startsWith('<h3') || p.startsWith('<p class="ml-4">')) {
+                    return p;
+                }
+                return `<p>${p}</p>`;
+            }).join('');
+
+            return html.replace(/<\/p><p class="ml-4">/g, '<p class="ml-4">');
+        }
+        
+        async function generateWorkPlan(dayId, futureEvents) {
             aiReportModal.classList.remove('hidden');
             aiReportContent.innerHTML = '<div class="flex justify-center items-center h-full"><svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-4 text-gray-700">AI가 보고서를 작성하고 있습니다...</span></div>';
 
@@ -1237,6 +1324,7 @@
 
             const dateKey = (dayId === 'today') ? new Date().toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0];
             const prediction = predictionLog[dateKey];
+            const dayWeather = (dayId === 'today') ? futureEvents.today.weather : futureEvents.tomorrow.weather;
 
             const deliveryTimeText = container.querySelector('.calculator-card[data-task-type="delivery"] .result-time').textContent;
             const forwardingWorkload = container.querySelector('.calculator-card[data-task-type="forwarding"] .workload').value || '0';
@@ -1249,6 +1337,7 @@
             아래 데이터를 바탕으로 ${dateString}의 '일일 업무 계획서'를 작성해주세요.
 
             **핵심 데이터:**
+            - 날씨: ${dayWeather}
             - 예측 배송 업무량 (전체): ${prediction.deliveries}건
             - 직진배송 업무량: ${forwardingWorkload}건
             - 제작입고 업무량: ${warehousingWorkload}건
@@ -1260,17 +1349,22 @@
             - 직진배송: ${forwardingTimeText}
             - 제작입고: ${warehousingTimeText}
 
-            **계획서 필수 포함 항목:**
-            1.  **핵심 목표 (Key Goals)**: 오늘의 처리해야 할 가장 중요한 목표 수치를 2~3줄로 요약.
-            2.  **작업 타임라인 (Work Timeline)**: 근무 시간(08:30-17:30)과 점심시간(12:30-13:30)을 엄격히 준수하고, [오전 배송 -> 제작입고(있는 경우) -> 직진배송 -> 오후 배송] 순서에 따라, 각 작업의 예상 시작/종료 시간, 주요 내용, 담당 인원을 명확하게 명시. 특히 배송 업무는 오전(약 45%)과 오후로 나누어 계획하고, 점심시간에 걸치는 업무는 중단 후 재개하는 것을 반영해주세요.
-            3.  **주요 지시사항 (Key Instructions)**: 예상되는 문제점이나 팀원들이 특별히 신경 써야 할 부분을 2~3가지 항목으로 간결하게 지시.
+            **계획서 필수 포함 항목 (마크다운 형식 사용):**
+            ### 핵심 목표 (Key Goals)
+            - 오늘의 처리해야 할 가장 중요한 목표 수치를 2~3줄로 요약.
+            
+            ### 작업 타임라인 (Work Timeline)
+            - 근무 시간(08:30-17:30)과 점심시간(12:30-13:30)을 엄격히 준수하고, [오전 배송 -> 제작입고(있는 경우) -> 직진배송 -> 오후 배송] 순서에 따라, 각 작업의 예상 시작/종료 시간, 주요 내용, 담당 인원을 명확하게 명시. 특히 배송 업무는 오전(약 45%)과 오후로 나누어 계획하고, 점심시간에 걸치는 업무는 중단 후 재개하는 것을 반영해주세요.
+            
+            ### 주요 지시사항 (Key Instructions)
+            - 예상되는 문제점이나 팀원들이 특별히 신경 써야 할 부분을 2~3가지 항목으로 간결하게 지시. 오늘의 날씨(${dayWeather})를 고려하여 특별히 주의해야 할 점이 있다면 포함해주세요. (예: 비 오는 날 상품 포장 주의)
 
             **작성 스타일:**
             - 보고서의 서론, 결론, 격려 메시지 등은 제외하고, 실제 업무 지시에 필요한 내용만 간결하게 작성해주세요.
-            - 각 항목은 명확하게 구분하고, 팀원들이 바로 이해할 수 있도록 직설적으로 작성해주세요.
+            - 마크다운을 사용하여 각 항목을 명확하게 구분하고, 팀원들이 바로 이해할 수 있도록 직설적으로 작성해주세요.
             `;
 
-            const apiKey = ""; // API Key removed for security
+            const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             try {
@@ -1291,7 +1385,7 @@
                 const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
 
                 if (text) {
-                    aiReportContent.innerHTML = text.replace(/\n/g, '<br>');
+                    aiReportContent.innerHTML = formatAiResponse(text);
                 } else {
                     aiReportContent.textContent = 'AI로부터 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요.';
                 }
@@ -1312,18 +1406,30 @@
             아래는 우리 쇼핑몰의 과거 판매 데이터입니다. 이 데이터를 심층적으로 분석하여 비즈니스 인사이트 보고서를 작성해주세요.
 
             **분석 데이터:**
-            ${JSON.stringify(historicalData.map(d => ({...d, date: d.date.split('T')[0]})))}
+            ${JSON.stringify(historicalData.map(d => ({ date: d.date.split('T')[0], orders: d.orders, deliveries: d.deliveries, events: d.events, weather: d.weather || '맑음', minTemp: d.minTemperature, maxTemp: d.maxTemperature })))}
 
-            **보고서 필수 포함 항목:**
-            1.  **전반적인 판매 동향 분석:** 최근 데이터에 가중치를 두어 전체적인 주문량 및 배송량의 성장, 정체, 또는 하락 추세를 분석해주세요.
-            2.  **요일별 패턴 심층 분석:** 어떤 요일에 주문이 가장 많고 적은지, 그리고 그 이유는 무엇일지 추론해주세요.
-            3.  **이벤트 효과 분석:** '프로모션'과 '제작입고' 이벤트가 주문량 및 배송량에 미치는 영향을 수치적으로 분석하고, 그 효과를 평가해주세요.
-            4.  **주기성 및 계절성 분석 (예비):** 현재 데이터 양으로 파악할 수 있는 월별 또는 계절적 패턴이 있는지 예비 분석을 제공해주세요. (데이터가 1년 미만일 경우, 더 정확한 분석을 위해 1년 이상의 데이터가 필요하다고 언급해주세요.)
-            5.  **전략적 제안:** 위 분석 내용을 바탕으로, 앞으로의 재고 관리, 인력 운영, 마케팅 전략에 대해 실행 가능한 2~3가지 구체적인 제안을 해주세요.
-            6.  **향후 단기 전망:** 위 모든 분석을 종합하여, 향후 3~5일 동안 주문량이 증가할 것으로 예상되는지, 또는 감소할 것으로 예상되는지 그 이유와 함께 간결하게 전망해주세요.
+            **보고서 필수 포함 항목 (마크다운 형식 사용):**
+            ### 1. 전반적인 판매 동향 분석
+            - 최근 데이터에 가중치를 두어 전체적인 주문량 및 배송량의 성장, 정체, 또는 하락 추세를 분석해주세요.
+            
+            ### 2. 요일별 패턴 심층 분석
+            - 어떤 요일에 주문이 가장 많고 적은지, 그리고 그 이유는 무엇일지 추론해주세요.
+            
+            ### 3. 이벤트 및 날씨 효과 분석
+            - '프로모션', '제작입고' 이벤트가 주문량에 미치는 영향을 수치적으로 분석해주세요.
+            - 날씨(특히 '비' 또는 '눈' 오는 날)와 기온이 주문량에 미치는 영향을 분석하고, 그 효과를 평가해주세요.
+            
+            ### 4. 주기성 및 계절성 분석 (예비)
+            - 현재 데이터 양으로 파악할 수 있는 월별 또는 계절적 패턴이 있는지 예비 분석을 제공해주세요. (데이터가 1년 미만일 경우, 더 정확한 분석을 위해 1년 이상의 데이터가 필요하다고 언급해주세요.)
+            
+            ### 5. 전략적 제안
+            - 위 분석 내용을 바탕으로, 앞으로의 재고 관리, 인력 운영, 마케팅 전략에 대해 실행 가능한 2~3가지 구체적인 제안을 해주세요.
+            
+            ### 6. 향후 단기 전망
+            - 위 모든 분석을 종합하여, 향후 3~5일 동안 주문량이 증가할 것으로 예상되는지, 또는 감소할 것으로 예상되는지 그 이유와 함께 간결하게 전망해주세요.
             `;
 
-            const apiKey = ""; // API Key removed for security
+            const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             try {
@@ -1344,7 +1450,7 @@
                 const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
 
                 if (text) {
-                    aiAnalysisContent.innerHTML = text.replace(/\n/g, '<br>');
+                    aiAnalysisContent.innerHTML = formatAiResponse(text);
                 } else {
                     aiAnalysisContent.textContent = 'AI로부터 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요.';
                 }
@@ -1361,7 +1467,7 @@
             const dataWithDateObjects = dataToRender || historicalData.map(d => ({...d, date: new Date(d.date)})).slice(0, 30);
             const container = document.getElementById('data-input-grid-container');
             const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-            let gridHTML = `<div class="grid grid-cols-6 gap-x-4 gap-y-2 text-sm text-center font-semibold data-grid-header py-2 border-b"> <div>날짜</div> <div>주문량</div> <div>배송량</div> <div>프로모션</div> <div>휴일</div> <div>제작입고</div> </div>`;
+            let gridHTML = `<div class="grid grid-cols-8 gap-x-4 gap-y-2 text-sm text-center font-semibold data-grid-header py-2 border-b"> <div>날짜</div> <div>주문량</div> <div>배송량</div> <div class="col-span-2">날씨 / 기온</div> <div>프로모션</div> <div>휴일</div> <div>제작입고</div> </div>`;
             dataWithDateObjects.forEach(d => {
                 const date = d.date;
                 const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -1370,12 +1476,100 @@
                 let dayClass = '';
                 if (dayOfWeek === 0) dayClass = 'bg-red-50 text-red-700'; // Sunday
                 if (dayOfWeek === 6) dayClass = 'bg-blue-50 text-blue-700'; // Saturday
-                gridHTML += `<div class="grid grid-cols-6 gap-x-4 items-center py-2 border-b border-gray-100 ${dayClass}" data-date="${dateString}"><div class="text-center text-xs font-semibold">${dateString} (${dayName})</div><div><input type="number" value="${d.orders}" class="w-full p-1.5 border rounded-md text-center"></div> <div><input type="number" value="${d.deliveries}" class="w-full p-1.5 border rounded-md text-center"></div><div class="text-center"><input type="checkbox" ${d.events.promotion ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.holiday ? 'checked' : ''} class="event-checkbox h-5 w-5"></div><div class="text-center"><input type="checkbox" ${d.events.warehousing ? 'checked' : ''} class="event-checkbox h-5 w-5"></div></div>`;
+                const weatherIcon = d.weather === '비' ? '🌧️' : d.weather === '눈' ? '🌨️' : d.weather === '흐림' ? '☁️' : '☀️';
+                gridHTML += `<div class="grid grid-cols-8 gap-x-4 items-center py-2 border-b border-gray-100 ${dayClass}" data-date="${dateString}">
+                    <div class="text-center text-xs font-semibold">${dateString} (${dayName})</div>
+                    <div><input type="number" value="${d.orders}" class="w-full p-1.5 border rounded-md text-center data-input-orders"></div> 
+                    <div><input type="number" value="${d.deliveries}" class="w-full p-1.5 border rounded-md text-center data-input-deliveries"></div>
+                    <div class="col-span-2 text-center text-sm">
+                        <span>${weatherIcon} ${d.weather || ''}</span>
+                        <span class="ml-2 text-gray-500">${d.minTemperature !== undefined ? `${d.minTemperature}°/${d.maxTemperature}°` : '-'}</span>
+                    </div>
+                    <div class="text-center"><input type="checkbox" ${d.events.promotion ? 'checked' : ''} class="event-checkbox h-5 w-5 data-input-promo"></div>
+                    <div class="text-center"><input type="checkbox" ${d.events.holiday ? 'checked' : ''} class="event-checkbox h-5 w-5 data-input-holiday"></div>
+                    <div class="text-center"><input type="checkbox" ${d.events.warehousing ? 'checked' : ''} class="event-checkbox h-5 w-5 data-input-warehousing"></div>
+                </div>`;
             });
             container.innerHTML = gridHTML;
         }
-        function readDataFromModal() { const rows = document.querySelectorAll('#data-input-grid-container > div[data-date]'); return Array.from(rows).map(row => { const inputs = row.querySelectorAll('input'); return { date: new Date(row.dataset.date), orders: parseInt(inputs[0].value, 10) || 0, deliveries: parseInt(inputs[1].value, 10) || 0, events: { promotion: inputs[2].checked, holiday: inputs[3].checked, warehousing: inputs[4].checked, } }; }).sort((a, b) => b.date - a.date); }
-        function getFutureEvents() { const getEvents = (container) => { const cbs = container.querySelectorAll('input[type="checkbox"]'); return { promotion: cbs[0].checked, holiday: cbs[1].checked, warehousing: cbs[2].checked }; }; return { today: getEvents(document.querySelector('#futureEvents div[data-day="today"]')), tomorrow: getEvents(document.querySelector('#futureEvents div[data-day="tomorrow"]')) }; }
+        function readDataFromModal() { 
+            const rows = document.querySelectorAll('#data-input-grid-container > div[data-date]'); 
+            return Array.from(rows).map(row => { 
+                const originalData = historicalData.find(d => d.date.startsWith(row.dataset.date));
+                return { 
+                    date: new Date(row.dataset.date), 
+                    orders: parseInt(row.querySelector('.data-input-orders').value, 10) || 0, 
+                    deliveries: parseInt(row.querySelector('.data-input-deliveries').value, 10) || 0, 
+                    weather: originalData ? originalData.weather : '맑음',
+                    minTemperature: originalData ? originalData.minTemperature : null,
+                    maxTemperature: originalData ? originalData.maxTemperature : null,
+                    events: { 
+                        promotion: row.querySelector('.data-input-promo').checked, 
+                        holiday: row.querySelector('.data-input-holiday').checked, 
+                        warehousing: row.querySelector('.data-input-warehousing').checked, 
+                    } 
+                }; 
+            }).sort((a, b) => b.date - a.date); 
+        }
+        function getFutureEvents() { 
+            const getEvents = (container) => { 
+                const cbs = container.querySelectorAll('input[type="checkbox"]'); 
+                return { 
+                    promotion: cbs[0].checked, 
+                    holiday: cbs[1].checked, 
+                    warehousing: cbs[2].checked,
+                }; 
+            }; 
+            return { 
+                today: getEvents(document.querySelector('#futureEvents div[data-day="today"]')), 
+                tomorrow: getEvents(document.querySelector('#futureEvents div[data-day="tomorrow"]')) 
+            }; 
+        }
+
+        async function fetchAndUpdateWeatherData() {
+            const dataToUpdate = historicalData.filter(d => !d.weather);
+            if (dataToUpdate.length === 0) {
+                console.log("All weather data is up to date.");
+                return;
+            }
+            showToast('과거 날씨 데이터를 불러옵니다...', 'info');
+
+            const sortedData = [...dataToUpdate].sort((a,b) => new Date(a.date) - new Date(b.date));
+            const startDate = sortedData[0].date.split('T')[0];
+            const endDate = sortedData[sortedData.length - 1].date.split('T')[0];
+
+            const lat = 37.57; // Seoul latitude
+            const lon = 126.98; // Seoul longitude
+            const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&daily=weathercode,temperature_2m_max,temperature_2m_min`;
+
+            try {
+                const response = await fetch(url);
+                const weatherData = await response.json();
+
+                const interpretWeatherCode = (code) => {
+                    if (code >= 71 && code <= 77) return '눈';
+                    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return '비';
+                    if (code > 0 && code <= 48) return '흐림';
+                    return '맑음';
+                };
+
+                weatherData.daily.time.forEach((date, index) => {
+                    const dataEntry = historicalData.find(d => d.date.startsWith(date));
+                    if(dataEntry) {
+                        dataEntry.weather = interpretWeatherCode(weatherData.daily.weathercode[index]);
+                        dataEntry.maxTemperature = Math.round(weatherData.daily.temperature_2m_max[index]);
+                        dataEntry.minTemperature = Math.round(weatherData.daily.temperature_2m_min[index]);
+                    }
+                });
+
+                await saveDataToFirestore();
+                showToast('날씨 데이터 업데이트 완료!', 'success');
+            } catch (error) {
+                console.error("Failed to fetch weather data:", error);
+                showToast('날씨 데이터 로딩에 실패했습니다.', 'error');
+            }
+        }
+
 
         // --- Auto-run on page load ---
         initializeUI();
