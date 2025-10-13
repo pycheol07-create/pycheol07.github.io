@@ -139,28 +139,28 @@
                                     <input type="date" id="holidayEndDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
                                 </div>
                                  <div class="mt-4 border-t pt-4 space-y-2">
-                                    <label class="flex items-center cursor-pointer">
-                                        <input type="checkbox" id="runHolidayPromotion" class="event-checkbox h-4 w-4 mr-2">
-                                        <span class="text-sm font-medium text-gray-700">연휴 기간 중 프로모션 진행</span>
-                                    </label>
-                                    <details id="holidayPromotionSettingsDetails" class="hidden pl-6">
-                                        <summary class="text-sm font-medium text-gray-600 cursor-pointer hover:text-black">프로모션 상세 설정</summary>
-                                        <div class="space-y-4 mt-2">
-                                            <div>
-                                                <label for="promoStartDate" class="block text-sm font-medium text-gray-700">프로모션 시작일</label>
-                                                <input type="date" id="promoStartDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
-                                            </div>
-                                            <div>
-                                                <label for="promoEndDate" class="block text-sm font-medium text-gray-700">프로모션 종료일</label>
-                                                <input type="date" id="promoEndDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
-                                            </div>
-                                            <div>
-                                                <label for="promoIncreaseRate" class="block text-sm font-medium text-gray-700">프로모션 증가율 (%)</label>
-                                                <input type="number" id="promoIncreaseRate" value="80" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
-                                            </div>
-                                        </div>
-                                    </details>
-                                </div>
+                                     <label class="flex items-center cursor-pointer">
+                                         <input type="checkbox" id="runHolidayPromotion" class="event-checkbox h-4 w-4 mr-2">
+                                         <span class="text-sm font-medium text-gray-700">연휴 기간 중 프로모션 진행</span>
+                                     </label>
+                                     <details id="holidayPromotionSettingsDetails" class="hidden pl-6">
+                                         <summary class="text-sm font-medium text-gray-600 cursor-pointer hover:text-black">프로모션 상세 설정</summary>
+                                         <div class="space-y-4 mt-2">
+                                             <div>
+                                                 <label for="promoStartDate" class="block text-sm font-medium text-gray-700">프로모션 시작일</label>
+                                                 <input type="date" id="promoStartDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                                             </div>
+                                             <div>
+                                                 <label for="promoEndDate" class="block text-sm font-medium text-gray-700">프로모션 종료일</label>
+                                                 <input type="date" id="promoEndDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                                             </div>
+                                             <div>
+                                                 <label for="promoIncreaseRate" class="block text-sm font-medium text-gray-700">프로모션 증가율 (%)</label>
+                                                 <input type="number" id="promoIncreaseRate" value="80" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                                             </div>
+                                         </div>
+                                     </details>
+                                 </div>
                                 <button id="predictBacklogBtn" class="w-full bg-teal-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-700 btn text-sm">
                                     누적량 예측
                                 </button>
@@ -246,7 +246,7 @@
                 <p class="text-xs text-gray-500 mt-1">전체 업무에 적용할 인원 수를 설정합니다.</p>
             </div>
             <div class="bg-gray-50 px-6 py-4 flex justify-end rounded-b-lg border-t">
-                 <button id="applyPersonnelBtn" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 btn">
+                <button id="applyPersonnelBtn" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 btn">
                     적용
                 </button>
             </div>
@@ -264,8 +264,8 @@
                 <!-- Throughput settings will be injected here -->
             </div>
             <div class="bg-gray-50 px-6 py-4 flex justify-between items-center rounded-b-lg border-t">
-                 <button id="saveRatesBtn" class="bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 btn text-sm">설정 저장</button>
-                 <button class="close-modal-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 btn text-sm">
+                <button id="saveRatesBtn" class="bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 btn text-sm">설정 저장</button>
+                <button class="close-modal-btn bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 btn text-sm">
                     닫기
                 </button>
             </div>
@@ -716,13 +716,13 @@
             const promoRate = runPromo ? (parseFloat(promoIncreaseRateInput.value) || 0) / 100 : 0;
             
             if(runPromo && (promoStart > promoEnd || !promoStartDateInput.value || !promoEndDateInput.value)) {
-                  showToast('프로모션 기간을 올바르게 설정해주세요.', 'error');
-                  return;
+                 showToast('프로모션 기간을 올바르게 설정해주세요.', 'error');
+                 return;
             }
 
             if(runPromo) {
-                  promoStart.setMinutes(promoStart.getMinutes() + promoStart.getTimezoneOffset());
-                  promoEnd.setMinutes(promoEnd.getMinutes() + promoEnd.getTimezoneOffset());
+                 promoStart.setMinutes(promoStart.getMinutes() + promoStart.getTimezoneOffset());
+                 promoEnd.setMinutes(promoEnd.getMinutes() + promoEnd.getTimezoneOffset());
             }
 
             let totalBacklogOrders = 0;
@@ -975,13 +975,23 @@
         function recalculateAllCards() { document.querySelectorAll('.calculator-card').forEach(calculateAndDisplayTime); }
         
         function updateCalculators(todayPrediction, tomorrowPrediction) {
-            updateCardWorkload('today', 'delivery', todayPrediction.deliveries);
-            updateCardWorkload('today', 'forwarding', '');
-            updateCardWorkload('today', 'warehousing', '');
-            updateCardWorkload('tomorrow', 'delivery', tomorrowPrediction.deliveries);
-            updateCardWorkload('tomorrow', 'forwarding', '');
-            updateCardWorkload('tomorrow', 'warehousing', '');
+            // Get the input elements for the delivery workload for today and tomorrow.
+            const todayDeliveryWorkloadInput = document.querySelector('#today .calculator-card[data-task-type="delivery"] .workload');
+            const tomorrowDeliveryWorkloadInput = document.querySelector('#tomorrow .calculator-card[data-task-type="delivery"] .workload');
+
+            // Update only the delivery workload values based on the new prediction.
+            // This leaves any manually entered values in "forwarding" and "warehousing" untouched.
+            if (todayDeliveryWorkloadInput) {
+                todayDeliveryWorkloadInput.value = todayPrediction.deliveries;
+            }
+            if (tomorrowDeliveryWorkloadInput) {
+                tomorrowDeliveryWorkloadInput.value = tomorrowPrediction.deliveries;
+            }
+
+            // After updating the predicted values, recalculate everything to update time estimates and summaries.
+            recalculateAllCards();
         }
+
 
         function updateCardWorkload(dayId, taskType, workload) {
             const card = document.querySelector(`#${dayId} .calculator-card[data-task-type="${taskType}"]`);
@@ -1220,4 +1230,3 @@
 
 </body>
 </html>
-
