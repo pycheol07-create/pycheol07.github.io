@@ -95,17 +95,29 @@
                         <div class="p-3 bg-gray-50 rounded-lg">
                             <label class="font-medium text-sm text-gray-800">오늘 이벤트</label>
                             <div class="flex items-center space-x-4 mt-2 text-sm" data-day="today">
-                                <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">프로모션</label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">프로모션
+                                    <span id="today-promo-rate" class="text-xs font-medium ml-1"></span>
+                                </label>
                                 <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">휴일</label>
-                                <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">제작입고</label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">제작입고
+                                    <span id="today-warehousing-rate" class="text-xs font-medium ml-1"></span>
+                                </label>
                             </div>
                         </div>
                         <div class="p-3 bg-gray-50 rounded-lg">
                             <label class="font-medium text-sm text-gray-800">내일 이벤트</label>
                              <div class="flex items-center space-x-4 mt-2 text-sm" data-day="tomorrow">
-                                <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">프로모션</label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">프로모션
+                                    <span id="tomorrow-promo-rate" class="text-xs font-medium ml-1"></span>
+                                </label>
                                 <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">휴일</label>
-                                <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">제작입고</label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">제작입고
+                                    <span id="tomorrow-warehousing-rate" class="text-xs font-medium ml-1"></span>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -252,8 +264,12 @@
     <!-- Throughput Settings Modal -->
     <div id="throughputModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 modal-backdrop flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-sm transform transition-all flex flex-col">
-            <div class="p-5 border-b flex justify-between items-center">
+            <div class="p-5 border-b flex justify-between items-center gap-2">
                 <h3 class="text-lg font-semibold text-gray-900">분당 처리량 설정</h3>
+                <div class="flex-grow"></div>
+                <button id="load-avg-throughput-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-1 px-3 text-xs rounded-lg transition" title="팀 업무 시간 기록기에서 최근 주 평균 데이터를 불러옵니다.">
+                    주 평균 불러오기
+                </button>
                 <button class="close-modal-btn text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
             </div>
             <div id="throughputSettings" class="p-5">
@@ -310,7 +326,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         
         // --- DOM Elements ---
@@ -338,6 +354,7 @@
         const aiReportContent = document.getElementById('aiReportContent');
         const connectionStatus = document.getElementById('connectionStatus');
         const statusIndicator = document.getElementById('status-indicator');
+        const loadAvgThroughputBtn = document.getElementById('load-avg-throughput-btn');
         
         // Data Modal Filter
         const dataFilterMonth = document.getElementById('dataFilterMonth');
@@ -403,6 +420,15 @@
             { date: "2025-09-04", orders: 653, deliveries: 722, events: { promotion: false, holiday: false, warehousing: true } },
             { date: "2025-09-03", orders: 777, deliveries: 819, events: { promotion: false, holiday: false, warehousing: false } }
         ];
+
+        // --- Utility Functions ---
+        const getWeekOfYear = (date) => {
+            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+        };
 
         // --- Toast Notification ---
         function showToast(message, type = 'success') {
@@ -588,6 +614,8 @@
             recalculateAllCards();
             throughputModal.classList.add('hidden');
         });
+        
+        loadAvgThroughputBtn.addEventListener('click', fetchAndApplyWeeklyAverageThroughput);
 
         // Data Modal Filter Listeners
         filterDataBtn.addEventListener('click', () => {
@@ -686,6 +714,79 @@
         });
 
         // --- Core Functions ---
+        async function fetchAndApplyWeeklyAverageThroughput() {
+            showToast('기록기 데이터에서 주 평균을 계산 중입니다...', 'info');
+            const LOGGER_APP_ID = "team-work-logger-v1";
+
+            try {
+                const historyCollectionRef = collection(db, "artifacts", LOGGER_APP_ID, "history");
+                const querySnapshot = await getDocs(historyCollectionRef);
+                
+                if (querySnapshot.empty) {
+                    showToast('분석할 기록 데이터가 없습니다.', 'error');
+                    return;
+                }
+
+                const weeklyData = {};
+                querySnapshot.forEach(doc => {
+                    const dateStr = doc.id;
+                    const dayData = doc.data();
+                    const records = dayData.workRecords || [];
+                    const quantities = dayData.taskQuantities || {};
+
+                    const weekKey = getWeekOfYear(new Date(dateStr));
+                    if (!weeklyData[weekKey]) {
+                        weeklyData[weekKey] = { taskData: {} };
+                    }
+
+                    records.forEach(record => {
+                        if (!weeklyData[weekKey].taskData[record.task]) {
+                            weeklyData[weekKey].taskData[record.task] = { minutes: 0, quantity: 0 };
+                        }
+                        weeklyData[weekKey].taskData[record.task].minutes += record.duration;
+                    });
+                    Object.entries(quantities).forEach(([task, qty]) => {
+                        if (qty > 0) {
+                            if (!weeklyData[weekKey].taskData[task]) {
+                                weeklyData[weekKey].taskData[task] = { minutes: 0, quantity: 0 };
+                            }
+                            weeklyData[weekKey].taskData[task].quantity += qty;
+                        }
+                    });
+                });
+
+                const sortedWeeks = Object.keys(weeklyData).sort().reverse();
+                if (sortedWeeks.length === 0) {
+                    showToast('분석할 유효한 주 데이터가 없습니다.', 'error');
+                    return;
+                }
+                const latestWeekKey = sortedWeeks[0];
+                const latestWeekData = weeklyData[latestWeekKey].taskData;
+
+                const calculateThroughput = (taskName) => {
+                    const taskData = latestWeekData[taskName];
+                    if (taskData && taskData.minutes > 0 && taskData.quantity > 0) {
+                        return (taskData.quantity / taskData.minutes).toFixed(2);
+                    }
+                    return null;
+                };
+
+                const deliveryThroughput = calculateThroughput('국내배송');
+                const forwardingThroughput = calculateThroughput('직진배송');
+                const warehousingThroughput = calculateThroughput('중국제작');
+                
+                if (deliveryThroughput !== null) document.getElementById('rate-delivery').value = deliveryThroughput;
+                if (forwardingThroughput !== null) document.getElementById('rate-forwarding').value = forwardingThroughput;
+                if (warehousingThroughput !== null) document.getElementById('rate-warehousing').value = warehousingThroughput;
+
+                showToast(`최근 주(${latestWeekKey})의 평균 처리량을 불러왔습니다.`, 'success');
+
+            } catch (error) {
+                console.error("Error fetching average throughput:", error);
+                showToast("평균 처리량 데이터를 불러오는 데 실패했습니다.", "error");
+            }
+        }
+        
         function handleAnalysis() {
             if (!currentAppId) {
                 showToast("데이터 동기화가 완료될 때까지 기다려주세요.", "info");
@@ -699,7 +800,11 @@
                 if (dataWithDateObjects.length < 7) { showToast('최소 7일 이상의 데이터가 필요합니다.', 'error'); runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행'; return; }
                 const today = new Date(); const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); const futureEvents = getFutureEvents(); const todayPrediction = predict(dataWithDateObjects, today, futureEvents.today); const tomorrowPrediction = predict(dataWithDateObjects, tomorrow, futureEvents.tomorrow, todayPrediction, futureEvents.today);
                 predictionLog[today.toISOString().split('T')[0]] = todayPrediction; predictionLog[tomorrow.toISOString().split('T')[0]] = tomorrowPrediction;
-                displayPredictionResults(todayPrediction, tomorrowPrediction); displayModelAccuracy(); updateCalculators(todayPrediction, tomorrowPrediction); renderChart(dataWithDateObjects, todayPrediction, tomorrowPrediction);
+                displayPredictionResults(todayPrediction, tomorrowPrediction);
+                displayModelAccuracy();
+                displayEventMultipliers();
+                updateCalculators(todayPrediction, tomorrowPrediction);
+                renderChart(dataWithDateObjects, todayPrediction, tomorrowPrediction);
                 runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행';
             }, 500);
         }
@@ -861,6 +966,50 @@
         function displayPredictionResults(today, tomorrow) { predictionResultDiv.innerHTML = `<h3 class="text-lg font-semibold border-t pt-4 mb-3">예측 결과</h3><div class="space-y-2 text-sm"><div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-medium">오늘 (${today.date.toLocaleDateString()}) 예상:</span><span class="font-bold text-indigo-600">주문 ${today.orders} / 배송 ${today.deliveries}</span></div><div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-medium">내일 (${tomorrow.date.toLocaleDateString()}) 예상:</span><span class="font-bold text-indigo-600">주문 ${tomorrow.orders} / 배송 ${tomorrow.deliveries}</span></div></div>`; }
         function displayModelAccuracy() { let totalDeviation = 0; adjustmentFactors.dayOfWeek.forEach(factor => { totalDeviation += Math.abs(factor.orders - 1); totalDeviation += Math.abs(factor.deliveries - 1); }); const accuracy = 100 * (1 - (totalDeviation / (adjustmentFactors.dayOfWeek.length * 2))); modelAccuracyDiv.innerHTML = `<div class="text-sm p-3 bg-indigo-50 text-indigo-800 rounded-lg flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg><span>현재 모델 정확도: <strong class="font-bold">${accuracy.toFixed(1)}%</strong></span></div>`; }
         
+        function displayEventMultipliers() {
+            const dataWithDateObjects = historicalData.map(d => ({...d, date: new Date(d.date)}));
+
+            if (dataWithDateObjects.length < 7) return; 
+
+            const promoMultiplier = calculateMultiplier(dataWithDateObjects, 'promotion');
+            const warehousingMultiplier = calculateMultiplier(dataWithDateObjects, 'warehousing');
+
+            const formatPercentage = (multiplier) => {
+                if (multiplier === 1) return '';
+                const percentage = (multiplier - 1) * 100;
+                const sign = percentage > 0 ? '+' : '';
+                return `(${sign}${percentage.toFixed(0)}%)`;
+            };
+            
+            const getColorClass = (multiplier) => {
+                if (multiplier > 1) return 'text-green-600';
+                if (multiplier < 1) return 'text-red-600';
+                return 'text-gray-500';
+            }
+
+            const todayPromoSpan = document.getElementById('today-promo-rate');
+            const todayWarehousingSpan = document.getElementById('today-warehousing-rate');
+            if (todayPromoSpan) {
+                todayPromoSpan.textContent = formatPercentage(promoMultiplier.orders);
+                todayPromoSpan.className = `text-xs font-medium ml-1 ${getColorClass(promoMultiplier.orders)}`;
+            }
+            if (todayWarehousingSpan) {
+                todayWarehousingSpan.textContent = formatPercentage(warehousingMultiplier.orders);
+                todayWarehousingSpan.className = `text-xs font-medium ml-1 ${getColorClass(warehousingMultiplier.orders)}`;
+            }
+
+            const tomorrowPromoSpan = document.getElementById('tomorrow-promo-rate');
+            const tomorrowWarehousingSpan = document.getElementById('tomorrow-warehousing-rate');
+            if (tomorrowPromoSpan) {
+                tomorrowPromoSpan.textContent = formatPercentage(promoMultiplier.orders);
+                 tomorrowPromoSpan.className = `text-xs font-medium ml-1 ${getColorClass(promoMultiplier.orders)}`;
+            }
+            if (tomorrowWarehousingSpan) {
+                tomorrowWarehousingSpan.textContent = formatPercentage(warehousingMultiplier.orders);
+                tomorrowWarehousingSpan.className = `text-xs font-medium ml-1 ${getColorClass(warehousingMultiplier.orders)}`;
+            }
+        }
+
         function renderChart(historicalDataWithDates, todayPrediction, tomorrowPrediction) {
             const reversedData = [...historicalDataWithDates].slice(0, 30).reverse();
             const labels = reversedData.map(d => d.date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }));
