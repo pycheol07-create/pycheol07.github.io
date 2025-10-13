@@ -486,16 +486,15 @@
         // --- Firebase Setup ---
         async function initializeFirebase() {
             try {
-                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-
-                if (!firebaseConfig.apiKey) {
-                    console.error("Firebase config is missing or invalid.");
-                    showToast("Firebase 설정이 올바르지 않습니다.", "error");
-                    connectionStatus.textContent = "설정 오류";
-                    statusIndicator.classList.remove('bg-gray-400');
-                    statusIndicator.classList.add('bg-red-500');
-                    return;
-                }
+                const firebaseConfig = {
+                    apiKey: "AIzaSyBxmX7fEISWYs_JGktAZrFjdb8cb_ZcmSY",
+                    authDomain: "work-tool-e2943.firebaseapp.com",
+                    projectId: "work-tool-e2943",
+                    storageBucket: "work-tool-e2943.appspot.com",
+                    messagingSenderId: "133294945093",
+                    appId: "1:133294945093:web:cde90aab6716127512842c",
+                    measurementId: "G-ZZQLKB0057"
+                };
 
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
@@ -505,14 +504,10 @@
                     if (user) {
                         console.log("Authenticated with UID:", user.uid);
                         connectToTeamData(appId); 
+                    } else {
+                        signInAnonymously(auth);
                     }
                 });
-                
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
 
             } catch (error) {
                 console.error("Firebase initialization error:", error);
@@ -1324,7 +1319,7 @@
 
             const dateKey = (dayId === 'today') ? new Date().toISOString().split('T')[0] : new Date(Date.now() + 86400000).toISOString().split('T')[0];
             const prediction = predictionLog[dateKey];
-
+            
             const deliveryTimeText = container.querySelector('.calculator-card[data-task-type="delivery"] .result-time').textContent;
             const forwardingWorkload = container.querySelector('.calculator-card[data-task-type="forwarding"] .workload').value || '0';
             const forwardingTimeText = container.querySelector('.calculator-card[data-task-type="forwarding"] .result-time').textContent;
@@ -1362,8 +1357,7 @@
             - 마크다운을 사용하여 각 항목을 명확하게 구분하고, 팀원들이 바로 이해할 수 있도록 직설적으로 작성해주세요.
             `;
 
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent`;
 
             try {
                 const response = await fetch(apiUrl, {
@@ -1427,8 +1421,7 @@
             - 위 모든 분석을 종합하여, 향후 3~5일 동안 주문량이 증가할 것으로 예상되는지, 또는 감소할 것으로 예상되는지 그 이유와 함께 간결하게 전망해주세요.
             `;
 
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent`;
 
             try {
                 const response = await fetch(apiUrl, {
