@@ -450,24 +450,41 @@
         // --- Firebase Setup ---
         async function initializeFirebase() {
             try {
-                const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-                const firebaseConfig = JSON.parse(firebaseConfigStr);
+                let firebaseConfig;
+
+                // This logic handles both the special environment (with __firebase_config) and a standard web environment.
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    firebaseConfig = JSON.parse(__firebase_config);
+                } else {
+                    // Fallback for standard web deployment
+                    firebaseConfig = {
+                        apiKey: "AIzaSyBxmX7fEISWYs_JGktAZrFjdb8cb_ZcmSY",
+                        authDomain: "work-tool-e2943.firebaseapp.com",
+                        projectId: "work-tool-e2943",
+                        storageBucket: "work-tool-e2943.appspot.com",
+                        messagingSenderId: "133294945093",
+                        appId: "1:133294945093:web:cde90aab6716127512842c",
+                        measurementId: "G-ZZQLKB0057"
+                    };
+                }
 
                 if (!firebaseConfig.apiKey) {
                     throw new Error("Firebase config is missing or invalid.");
                 }
-                
+
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
+                // This listener will fire once authentication is complete.
                 onAuthStateChanged(auth, user => {
                     if (user) {
                         console.log("Authenticated with UID:", user.uid);
                         connectToTeamData(appId); 
                     }
                 });
-
+                
+                // Trigger the initial authentication.
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -482,7 +499,6 @@
                 statusIndicator.classList.add('bg-red-500');
             }
         }
-
 
         function connectToTeamData(appIdToConnect) {
             if (unsubscribe) {
@@ -529,7 +545,7 @@
                     date: new Date(lastDate).toISOString(), 
                     orders: 0, 
                     deliveries: 0, 
-                    events: { promotion: false, holiday: false, warehousing: false },
+                    events: { holiday: false, warehousing: false },
                 });
             }
         }
@@ -1316,7 +1332,7 @@
             - 어떤 요일에 주문이 가장 많고 적은지, 그리고 그 이유는 무엇일지 추론해주세요.
             
             ### 3. 이벤트 및 날씨 효과 분석
-            - '프로모션', '제작입고' 이벤트가 주문량에 미치는 영향을 수치적으로 분석해주세요.
+            - '제작입고' 이벤트가 주문량에 미치는 영향을 수치적으로 분석해주세요.
             - 날씨(특히 '비' 또는 '눈' 오는 날)와 기온이 주문량에 미치는 영향을 분석하고, 그 효과를 평가해주세요.
             
             ### 4. 주기성 및 계절성 분석 (예비)
