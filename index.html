@@ -110,10 +110,6 @@
                         <div class="p-3 bg-gray-50 rounded-lg">
                             <label class="font-medium text-sm text-gray-800">오늘 이벤트</label>
                             <div class="flex items-center space-x-4 mt-2 text-sm" data-day="today">
-                                <label class="flex items-center">
-                                    <input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">프로모션
-                                    <span id="today-promo-rate" class="text-xs font-medium ml-1"></span>
-                                </label>
                                 <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">휴일</label>
                                 <label class="flex items-center">
                                     <input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">제작입고
@@ -124,10 +120,6 @@
                         <div class="p-3 bg-gray-50 rounded-lg">
                              <label class="font-medium text-sm text-gray-800">내일 이벤트</label>
                              <div class="flex items-center space-x-4 mt-2 text-sm" data-day="tomorrow">
-                                <label class="flex items-center">
-                                    <input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">프로모션
-                                    <span id="tomorrow-promo-rate" class="text-xs font-medium ml-1"></span>
-                                </label>
                                 <label class="flex items-center"><input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">휴일</label>
                                 <label class="flex items-center">
                                     <input type="checkbox" class="event-checkbox h-4 w-4 mr-1.5 future-event-cb">제작입고
@@ -161,29 +153,6 @@
                                     <label for="holidayEndDate" class="block text-sm font-medium text-gray-700">연휴 종료일</label>
                                     <input type="date" id="holidayEndDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
                                 </div>
-                                 <div class="mt-4 border-t pt-4 space-y-2">
-                                     <label class="flex items-center cursor-pointer">
-                                         <input type="checkbox" id="runHolidayPromotion" class="event-checkbox h-4 w-4 mr-2">
-                                         <span class="text-sm font-medium text-gray-700">연휴 기간 중 프로모션 진행</span>
-                                     </label>
-                                     <details id="holidayPromotionSettingsDetails" class="hidden pl-6">
-                                         <summary class="text-sm font-medium text-gray-600 cursor-pointer hover:text-black">프로모션 상세 설정</summary>
-                                         <div class="space-y-4 mt-2">
-                                             <div>
-                                                 <label for="promoStartDate" class="block text-sm font-medium text-gray-700">프로모션 시작일</label>
-                                                 <input type="date" id="promoStartDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
-                                             </div>
-                                             <div>
-                                                 <label for="promoEndDate" class="block text-sm font-medium text-gray-700">프로모션 종료일</label>
-                                                 <input type="date" id="promoEndDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
-                                             </div>
-                                             <div>
-                                                 <label for="promoIncreaseRate" class="block text-sm font-medium text-gray-700">프로모션 증가율 (%)</label>
-                                                 <input type="number" id="promoIncreaseRate" value="80" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
-                                             </div>
-                                         </div>
-                                     </details>
-                                 </div>
                                 <button id="predictBacklogBtn" class="w-full bg-teal-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-700 btn text-sm">
                                     누적량 예측
                                 </button>
@@ -384,12 +353,7 @@
         const holidayStartDateInput = document.getElementById('holidayStartDate');
         const holidayEndDateInput = document.getElementById('holidayEndDate');
         const backlogResultDiv = document.getElementById('backlogResultDiv');
-        const runHolidayPromotionCheckbox = document.getElementById('runHolidayPromotion');
-        const holidayPromotionSettingsDetails = document.getElementById('holidayPromotionSettingsDetails');
-        const promoStartDateInput = document.getElementById('promoStartDate');
-        const promoEndDateInput = document.getElementById('promoEndDate');
-        const promoIncreaseRateInput = document.getElementById('promoIncreaseRate');
-
+        
         // --- Firebase Variables ---
         let db, auth;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'public-work-forecast-session-v3';
@@ -406,35 +370,35 @@
 
         // --- Default Data (if localStorage is empty) ---
         const defaultHistoricalData = [
-            { date: "2025-10-01", orders: 997, deliveries: 1056, events: { promotion: false, holiday: false, warehousing: false }},
-            { date: "2025-09-30", orders: 1047, deliveries: 1042, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-29", orders: 1029, deliveries: 1366, events: { promotion: true, holiday: false, warehousing: false }},
-            { date: "2025-09-28", orders: 960, deliveries: 657, events: { promotion: false, holiday: true, warehousing: false }},
-            { date: "2025-09-27", orders: 652, deliveries: 483, events: { promotion: false, holiday: true, warehousing: false }},
-            { date: "2025-09-26", orders: 725, deliveries: 870, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-25", orders: 931, deliveries: 948, events: { promotion: false, holiday: false, warehousing: false }},
-            { date: "2025-09-24", orders: 1108, deliveries: 1230, events: { promotion: true, holiday: false, warehousing: true }},
-            { date: "2025-09-23", orders: 1319, deliveries: 1359, events: { promotion: true, holiday: false, warehousing: true }},
-            { date: "2025-09-22", orders: 1218, deliveries: 1263, events: { promotion: true, holiday: false, warehousing: false }},
-            { date: "2025-09-21", orders: 1085, deliveries: 708, events: { promotion: false, holiday: true, warehousing: false }},
-            { date: "2025-09-20", orders: 704, deliveries: 519, events: { promotion: false, holiday: true, warehousing: false }},
-            { date: "2025-09-19", orders: 818, deliveries: 921, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-18", orders: 906, deliveries: 890, events: { promotion: false, holiday: false, warehousing: false }},
-            { date: "2025-09-17", orders: 1032, deliveries: 1076, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-16", orders: 1046, deliveries: 1007, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-15", orders: 940, deliveries: 995, events: { promotion: false, holiday: false, warehousing: false }},
-            { date: "2025-09-14", orders: 824, deliveries: 548, events: { promotion: false, holiday: true, warehousing: false }},
-            { date: "2025-09-13", orders: 554, deliveries: 371, events: { promotion: false, holiday: true, warehousing: false }},
-            { date: "2025-09-12", orders: 559, deliveries: 707, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-11", orders: 805, deliveries: 925, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-10", orders: 867, deliveries: 850, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-09", orders: 963, deliveries: 861, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-08", orders: 913, deliveries: 900, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-07", orders: 708, deliveries: 507, events: { promotion: false, holiday: true, warehousing: false }},
-            { date: "2025-09-06", orders: 515, deliveries: 408, events: { promotion: false, holiday: true, warehousing: false }},
-            { date: "2025-09-05", orders: 569, deliveries: 582, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-04", orders: 653, deliveries: 722, events: { promotion: false, holiday: false, warehousing: true }},
-            { date: "2025-09-03", orders: 777, deliveries: 819, events: { promotion: false, holiday: false, warehousing: false }}
+            { date: "2025-10-01", orders: 997, deliveries: 1056, events: { holiday: false, warehousing: false }},
+            { date: "2025-09-30", orders: 1047, deliveries: 1042, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-29", orders: 1029, deliveries: 1366, events: { holiday: false, warehousing: false }},
+            { date: "2025-09-28", orders: 960, deliveries: 657, events: { holiday: true, warehousing: false }},
+            { date: "2025-09-27", orders: 652, deliveries: 483, events: { holiday: true, warehousing: false }},
+            { date: "2025-09-26", orders: 725, deliveries: 870, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-25", orders: 931, deliveries: 948, events: { holiday: false, warehousing: false }},
+            { date: "2025-09-24", orders: 1108, deliveries: 1230, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-23", orders: 1319, deliveries: 1359, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-22", orders: 1218, deliveries: 1263, events: { holiday: false, warehousing: false }},
+            { date: "2025-09-21", orders: 1085, deliveries: 708, events: { holiday: true, warehousing: false }},
+            { date: "2025-09-20", orders: 704, deliveries: 519, events: { holiday: true, warehousing: false }},
+            { date: "2025-09-19", orders: 818, deliveries: 921, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-18", orders: 906, deliveries: 890, events: { holiday: false, warehousing: false }},
+            { date: "2025-09-17", orders: 1032, deliveries: 1076, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-16", orders: 1046, deliveries: 1007, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-15", orders: 940, deliveries: 995, events: { holiday: false, warehousing: false }},
+            { date: "2025-09-14", orders: 824, deliveries: 548, events: { holiday: true, warehousing: false }},
+            { date: "2025-09-13", orders: 554, deliveries: 371, events: { holiday: true, warehousing: false }},
+            { date: "2025-09-12", orders: 559, deliveries: 707, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-11", orders: 805, deliveries: 925, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-10", orders: 867, deliveries: 850, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-09", orders: 963, deliveries: 861, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-08", orders: 913, deliveries: 900, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-07", orders: 708, deliveries: 507, events: { holiday: true, warehousing: false }},
+            { date: "2025-09-06", orders: 515, deliveries: 408, events: { holiday: true, warehousing: false }},
+            { date: "2025-09-05", orders: 569, deliveries: 582, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-04", orders: 653, deliveries: 722, events: { holiday: false, warehousing: true }},
+            { date: "2025-09-03", orders: 777, deliveries: 819, events: { holiday: false, warehousing: false }}
         ];
 
         // --- Utility Functions ---
@@ -486,16 +450,13 @@
         // --- Firebase Setup ---
         async function initializeFirebase() {
             try {
-                const firebaseConfig = {
-                    apiKey: "AIzaSyBxmX7fEISWYs_JGktAZrFjdb8cb_ZcmSY",
-                    authDomain: "work-tool-e2943.firebaseapp.com",
-                    projectId: "work-tool-e2943",
-                    storageBucket: "work-tool-e2943.appspot.com",
-                    messagingSenderId: "133294945093",
-                    appId: "1:133294945093:web:cde90aab6716127512842c",
-                    measurementId: "G-ZZQLKB0057"
-                };
+                const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+                const firebaseConfig = JSON.parse(firebaseConfigStr);
 
+                if (!firebaseConfig.apiKey) {
+                    throw new Error("Firebase config is missing or invalid.");
+                }
+                
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -504,10 +465,14 @@
                     if (user) {
                         console.log("Authenticated with UID:", user.uid);
                         connectToTeamData(appId); 
-                    } else {
-                        signInAnonymously(auth);
                     }
                 });
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
 
             } catch (error) {
                 console.error("Firebase initialization error:", error);
@@ -517,6 +482,7 @@
                 statusIndicator.classList.add('bg-red-500');
             }
         }
+
 
         function connectToTeamData(appIdToConnect) {
             if (unsubscribe) {
@@ -531,7 +497,7 @@
             const docRef = doc(db, "artifacts", currentAppId, "public/data/shared_state/singleton");
 
             unsubscribe = onSnapshot(docRef, (docSnap) => {
-                connectionStatus.textContent = "동기화연결";
+                connectionStatus.textContent = "동기화";
                 statusIndicator.classList.remove('bg-yellow-500', 'animate-pulse');
                 statusIndicator.classList.add('bg-green-500');
 
@@ -659,31 +625,14 @@
         predictBacklogBtn.addEventListener('click', () => {
             handleBacklogPrediction();
             saveDataToFirestore();
-            holidayPromotionSettingsDetails.open = false;
         });
-
-        runHolidayPromotionCheckbox.addEventListener('change', (e) => {
-            holidayPromotionSettingsDetails.classList.toggle('hidden', !e.target.checked);
-            if (e.target.checked) {
-                const avgRate = getAveragePromotionIncrease();
-                promoIncreaseRateInput.value = avgRate;
-                holidayPromotionSettingsDetails.open = true;
-            }
-            saveDataToFirestore();
-        });
+        
         holidayStartDateInput.addEventListener('change', () => {
-            promoStartDateInput.min = holidayStartDateInput.value;
-            if(holidayEndDateInput.value) promoEndDateInput.min = holidayStartDateInput.value;
              saveDataToFirestore();
         });
         holidayEndDateInput.addEventListener('change', () => {
-            promoStartDateInput.max = holidayEndDateInput.value;
-            promoEndDateInput.max = holidayEndDateInput.value;
              saveDataToFirestore();
         });
-        promoStartDateInput.addEventListener('change', saveDataToFirestore);
-        promoEndDateInput.addEventListener('change', saveDataToFirestore);
-        promoIncreaseRateInput.addEventListener('input', saveDataToFirestore);
 
         document.getElementById('calculatorWrapper').addEventListener('click', (e) => {
             if (e.target.classList.contains('generate-ai-report')) {
@@ -861,36 +810,17 @@
             start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
             end.setMinutes(end.getMinutes() + end.getTimezoneOffset());
 
-            const runPromo = runHolidayPromotionCheckbox.checked;
-            const promoStart = runPromo ? new Date(promoStartDateInput.value) : null;
-            const promoEnd = runPromo ? new Date(promoEndDateInput.value) : null;
-            const promoRate = runPromo ? (parseFloat(promoIncreaseRateInput.value) || 0) / 100 : 0;
-            
-            if(runPromo && (promoStart > promoEnd || !promoStartDateInput.value || !promoEndDateInput.value)) {
-                 showToast('프로모션 기간을 올바르게 설정해주세요.', 'error');
-                 return;
-            }
-
-            if(runPromo) {
-                 promoStart.setMinutes(promoStart.getMinutes() + promoStart.getTimezoneOffset());
-                 promoEnd.setMinutes(promoEnd.getMinutes() + promoEnd.getTimezoneOffset());
-            }
-
             let totalBacklogOrders = 0;
             
             for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                const isPromoDay = runPromo && d >= promoStart && d <= promoEnd;
-                const holidayEvents = { promotion: isPromoDay, holiday: true, warehousing: false };
+                const holidayEvents = { holiday: true, warehousing: false };
                 let holidayPrediction = predict(dataWithDateObjects, new Date(d), holidayEvents);
-                if(isPromoDay) {
-                    holidayPrediction.orders *= (1 + promoRate);
-                }
                 totalBacklogOrders += holidayPrediction.orders;
             }
             
             let firstWorkDay = new Date(end);
             firstWorkDay.setDate(firstWorkDay.getDate() + 1);
-            const firstWorkDayPrediction = predict(dataWithDateObjects, firstWorkDay, { promotion: false, holiday: false, warehousing: false });
+            const firstWorkDayPrediction = predict(dataWithDateObjects, firstWorkDay, { holiday: false, warehousing: false });
             const normalOrders = firstWorkDayPrediction.orders;
             const totalOrders = normalOrders + Math.round(totalBacklogOrders);
             
@@ -904,7 +834,19 @@
         }
 
         // --- Learning & Prediction ---
-        function learnFromNewData(newDataArray) { newDataArray.forEach(actual => { const dateString = actual.date.toISOString().split('T')[0]; if (predictionLog[dateString] && (actual.orders > 0 || actual.deliveries > 0)) { const prediction = predictionLog[dateString]; updateAdjustmentFactors(prediction, actual); delete predictionLog[dateString]; } }); }
+        function learnFromNewData(newDataArray) {
+            const today = new Date();
+            const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+            newDataArray.forEach(actual => {
+                const dateString = actual.date.toISOString().split('T')[0];
+                if (predictionLog[dateString] && (actual.orders > 0 || actual.deliveries > 0) && dateString !== todayString) {
+                    const prediction = predictionLog[dateString];
+                    updateAdjustmentFactors(prediction, actual);
+                    delete predictionLog[dateString];
+                }
+            });
+        }
         function updateAdjustmentFactors(prediction, actual) { const targetDay = actual.date.getDay(); if (prediction.orders === 0 || prediction.deliveries === 0) return; const orderRatio = actual.orders / prediction.orders; const deliveryRatio = actual.deliveries / prediction.deliveries; let oldOrderFactor = adjustmentFactors.dayOfWeek[targetDay].orders; let oldDeliveryFactor = adjustmentFactors.dayOfWeek[targetDay].deliveries; adjustmentFactors.dayOfWeek[targetDay].orders = oldOrderFactor * (1 - LEARNING_RATE) + orderRatio * LEARNING_RATE; adjustmentFactors.dayOfWeek[targetDay].deliveries = oldDeliveryFactor * (1 - LEARNING_RATE) + deliveryRatio * LEARNING_RATE; }
         
         function predict(data, targetDate, futureEvents, todayPrediction = null, todayEvents = null) {
@@ -918,14 +860,12 @@
             let predictedOrders = orderTotalWeight > 0 ? weightedOrderSum / orderTotalWeight : 0;
             
             const multipliers = { 
-                promotion: calculateMultiplier(data, 'events', 'promotion'), 
                 holiday: calculateMultiplier(data, 'events', 'holiday'), 
                 warehousing: calculateMultiplier(data, 'events', 'warehousing'),
                 rain: calculateMultiplier(data, 'weather', '비'),
                 snow: calculateMultiplier(data, 'weather', '눈')
             };
 
-            if (futureEvents.promotion) { predictedOrders *= multipliers.promotion.orders; }
             if (futureEvents.holiday) { predictedOrders *= multipliers.holiday.orders; }
             if (futureEvents.warehousing) { predictedOrders *= multipliers.warehousing.orders; }
             if (futureEvents.weather === '비') { predictedOrders *= multipliers.rain.orders; }
@@ -968,7 +908,6 @@
                 const deliveryRatio = calculateDeliveryRatio(data);
                 predictedDeliveries = accumulatedOrders * deliveryRatio;
                 
-                if (futureEvents.promotion) { predictedDeliveries *= multipliers.promotion.deliveries; }
                 if (futureEvents.warehousing) { predictedDeliveries *= multipliers.warehousing.deliveries; }
                 predictedDeliveries *= adjustmentFactors.dayOfWeek[targetDay].deliveries;
                 
@@ -1021,13 +960,6 @@
             };
         }
         
-        function getAveragePromotionIncrease() {
-            const dataWithDateObjects = historicalData.map(d => ({...d, date: new Date(d.date)}));
-            const multiplier = calculateMultiplier(dataWithDateObjects, 'events', 'promotion');
-            const increaseRate = Math.round((multiplier.orders - 1) * 100);
-            return increaseRate > 0 ? increaseRate : 80; // Fallback to 80 if no data or negative effect
-        }
-
         // --- UI Update Functions ---
         function displayPredictionResults(today, tomorrow) { predictionResultDiv.innerHTML = `<h3 class="text-lg font-semibold border-t pt-4 mb-3">예측 결과</h3><div class="space-y-2 text-sm"><div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-medium">오늘 (${today.date.toLocaleDateString()}) 예상:</span><span class="font-bold text-indigo-600">주문 ${today.orders} / 배송 ${today.deliveries}</span></div><div class="flex justify-between p-3 bg-gray-100 rounded-lg"><span class="font-medium">내일 (${tomorrow.date.toLocaleDateString()}) 예상:</span><span class="font-bold text-indigo-600">주문 ${tomorrow.orders} / 배송 ${tomorrow.deliveries}</span></div></div>`; }
         function displayModelAccuracy() { let totalDeviation = 0; adjustmentFactors.dayOfWeek.forEach(factor => { totalDeviation += Math.abs(factor.orders - 1); totalDeviation += Math.abs(factor.deliveries - 1); }); const accuracy = 100 * (1 - (totalDeviation / (adjustmentFactors.dayOfWeek.length * 2))); modelAccuracyDiv.innerHTML = `<div class="text-sm p-3 bg-indigo-50 text-indigo-800 rounded-lg flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg><span>현재 모델 정확도: <strong class="font-bold">${accuracy.toFixed(1)}%</strong></span></div>`; }
@@ -1037,7 +969,6 @@
 
             if (dataWithDateObjects.length < 7) return; 
 
-            const promoMultiplier = calculateMultiplier(dataWithDateObjects, 'events', 'promotion');
             const warehousingMultiplier = calculateMultiplier(dataWithDateObjects, 'events', 'warehousing');
 
             const formatPercentage = (multiplier) => {
@@ -1052,24 +983,14 @@
                 if (multiplier < 1) return 'text-red-600';
                 return 'text-gray-500';
             }
-
-            const todayPromoSpan = document.getElementById('today-promo-rate');
+            
             const todayWarehousingSpan = document.getElementById('today-warehousing-rate');
-            if (todayPromoSpan) {
-                todayPromoSpan.textContent = formatPercentage(promoMultiplier.orders);
-                todayPromoSpan.className = `text-xs font-medium ml-1 ${getColorClass(promoMultiplier.orders)}`;
-            }
             if (todayWarehousingSpan) {
                 todayWarehousingSpan.textContent = formatPercentage(warehousingMultiplier.orders);
                 todayWarehousingSpan.className = `text-xs font-medium ml-1 ${getColorClass(warehousingMultiplier.orders)}`;
             }
 
-            const tomorrowPromoSpan = document.getElementById('tomorrow-promo-rate');
             const tomorrowWarehousingSpan = document.getElementById('tomorrow-warehousing-rate');
-            if (tomorrowPromoSpan) {
-                tomorrowPromoSpan.textContent = formatPercentage(promoMultiplier.orders);
-                 tomorrowPromoSpan.className = `text-xs font-medium ml-1 ${getColorClass(promoMultiplier.orders)}`;
-            }
             if (tomorrowWarehousingSpan) {
                 tomorrowWarehousingSpan.textContent = formatPercentage(warehousingMultiplier.orders);
                 tomorrowWarehousingSpan.className = `text-xs font-medium ml-1 ${getColorClass(warehousingMultiplier.orders)}`;
@@ -1086,7 +1007,6 @@
             const predictionOrderData = Array(labels.length).fill(null).concat([todayPrediction.orders, tomorrowPrediction.orders]);
             const predictionDeliveryData = Array(labels.length).fill(null).concat([todayPrediction.deliveries, tomorrowPrediction.deliveries]);
             
-            const promoAnnotationsData = reversedData.map(d => d.events.promotion ? d.orders : null);
             const warehousingAnnotationsData = reversedData.map(d => d.events.warehousing ? d.orders : null);
 
             if (predictionChart) predictionChart.destroy();
@@ -1100,7 +1020,6 @@
                         { label: '과거 배송량', data: historicalDeliveries.concat(Array(2).fill(null)), borderColor: 'rgba(16, 185, 129, 0.6)', tension: 0.1 },
                         { label: '예측 주문량', data: predictionOrderData, borderColor: 'rgba(59, 130, 246, 1)', borderDash: [5, 5], pointRadius: 5 },
                         { label: '예측 배송량', data: predictionDeliveryData, borderColor: 'rgba(16, 185, 129, 1)', borderDash: [5, 5], pointRadius: 5 },
-                        { label: '프로모션', data: promoAnnotationsData, pointStyle: 'triangle', radius: 8, pointBackgroundColor: 'rgba(239, 68, 68, 1)', showLine: false },
                         { label: '제작입고', data: warehousingAnnotationsData, pointStyle: 'star', radius: 8, pointBackgroundColor: 'rgba(245, 158, 11, 1)', showLine: false }
                     ]
                 },
@@ -1122,10 +1041,6 @@
                 holidaySettings: {
                     holidayStart: holidayStartDateInput.value,
                     holidayEnd: holidayEndDateInput.value,
-                    promoChecked: runHolidayPromotionCheckbox.checked,
-                    promoStart: promoStartDateInput.value,
-                    promoEnd: promoEndDateInput.value,
-                    promoRate: promoIncreaseRateInput.value,
                     resultHTML: backlogResultDiv.innerHTML
                 },
                  globalPersonnel: globalPersonnelInput.value
@@ -1146,15 +1061,7 @@
             const settings = data.holidaySettings || {};
             holidayStartDateInput.value = settings.holidayStart || '';
             holidayEndDateInput.value = settings.holidayEnd || '';
-            runHolidayPromotionCheckbox.checked = settings.promoChecked || false;
-            promoStartDateInput.value = settings.promoStart || '';
-            promoEndDateInput.value = settings.promoEnd || '';
-            promoIncreaseRateInput.value = settings.promoRate || '80';
             backlogResultDiv.innerHTML = settings.resultHTML || '';
-            holidayPromotionSettingsDetails.classList.toggle('hidden', !runHolidayPromotionCheckbox.checked);
-            if(runHolidayPromotionCheckbox.checked) {
-                holidayPromotionSettingsDetails.open = true;
-            }
             
             globalPersonnelInput.value = data.globalPersonnel || '1';
             applyPersonnelBtn.click(); // Apply loaded personnel setting
@@ -1356,8 +1263,9 @@
             - 보고서의 서론, 결론, 격려 메시지 등은 제외하고, 실제 업무 지시에 필요한 내용만 간결하게 작성해주세요.
             - 마크다운을 사용하여 각 항목을 명확하게 구분하고, 팀원들이 바로 이해할 수 있도록 직설적으로 작성해주세요.
             `;
-
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent`;
+            
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             try {
                 const response = await fetch(apiUrl, {
@@ -1421,7 +1329,8 @@
             - 위 모든 분석을 종합하여, 향후 3~5일 동안 주문량이 증가할 것으로 예상되는지, 또는 감소할 것으로 예상되는지 그 이유와 함께 간결하게 전망해주세요.
             `;
 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent`;
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             try {
                 const response = await fetch(apiUrl, {
@@ -1458,7 +1367,7 @@
             const dataWithDateObjects = dataToRender || historicalData.map(d => ({...d, date: new Date(d.date)})).slice(0, 30);
             const container = document.getElementById('data-input-grid-container');
             const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-            let gridHTML = `<div class="grid grid-cols-8 gap-x-4 gap-y-2 text-sm text-center font-semibold data-grid-header py-2 border-b"> <div>날짜</div> <div>주문량</div> <div>배송량</div> <div class="col-span-2">날씨 / 기온</div> <div>프로모션</div> <div>휴일</div> <div>제작입고</div> </div>`;
+            let gridHTML = `<div class="grid grid-cols-7 gap-x-4 gap-y-2 text-sm text-center font-semibold data-grid-header py-2 border-b"> <div>날짜</div> <div>주문량</div> <div>배송량</div> <div class="col-span-2">날씨 / 기온</div> <div>휴일</div> <div>제작입고</div> </div>`;
             dataWithDateObjects.forEach(d => {
                 const date = d.date;
                 const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -1468,7 +1377,7 @@
                 if (dayOfWeek === 0) dayClass = 'bg-red-50 text-red-700'; // Sunday
                 if (dayOfWeek === 6) dayClass = 'bg-blue-50 text-blue-700'; // Saturday
                 const weatherIcon = d.weather === '비' ? '🌧️' : d.weather === '눈' ? '🌨️' : d.weather === '흐림' ? '☁️' : '☀️';
-                gridHTML += `<div class="grid grid-cols-8 gap-x-4 items-center py-2 border-b border-gray-100 ${dayClass}" data-date="${dateString}">
+                gridHTML += `<div class="grid grid-cols-7 gap-x-4 items-center py-2 border-b border-gray-100 ${dayClass}" data-date="${dateString}">
                     <div class="text-center text-xs font-semibold">${dateString} (${dayName})</div>
                     <div><input type="number" value="${d.orders}" class="w-full p-1.5 border rounded-md text-center data-input-orders"></div> 
                     <div><input type="number" value="${d.deliveries}" class="w-full p-1.5 border rounded-md text-center data-input-deliveries"></div>
@@ -1476,7 +1385,6 @@
                         <span>${weatherIcon} ${d.weather || ''}</span>
                         <span class="ml-2 text-gray-500">${d.minTemperature !== undefined ? `${d.minTemperature}°/${d.maxTemperature}°` : '-'}</span>
                     </div>
-                    <div class="text-center"><input type="checkbox" ${d.events.promotion ? 'checked' : ''} class="event-checkbox h-5 w-5 data-input-promo"></div>
                     <div class="text-center"><input type="checkbox" ${d.events.holiday ? 'checked' : ''} class="event-checkbox h-5 w-5 data-input-holiday"></div>
                     <div class="text-center"><input type="checkbox" ${d.events.warehousing ? 'checked' : ''} class="event-checkbox h-5 w-5 data-input-warehousing"></div>
                 </div>`;
@@ -1495,7 +1403,6 @@
                     minTemperature: originalData ? originalData.minTemperature : null,
                     maxTemperature: originalData ? originalData.maxTemperature : null,
                     events: { 
-                        promotion: row.querySelector('.data-input-promo').checked, 
                         holiday: row.querySelector('.data-input-holiday').checked, 
                         warehousing: row.querySelector('.data-input-warehousing').checked, 
                     } 
@@ -1506,9 +1413,8 @@
             const getEvents = (container) => { 
                 const cbs = container.querySelectorAll('input[type="checkbox"]'); 
                 return { 
-                    promotion: cbs[0].checked, 
-                    holiday: cbs[1].checked, 
-                    warehousing: cbs[2].checked,
+                    holiday: cbs[0].checked, 
+                    warehousing: cbs[1].checked,
                 }; 
             }; 
             return { 
