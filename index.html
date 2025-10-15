@@ -312,6 +312,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
         
         // --- DOM Elements ---
         const predictionResultDiv = document.getElementById('predictionResult');
@@ -355,7 +356,7 @@
         const backlogResultDiv = document.getElementById('backlogResultDiv');
         
         // --- Firebase Variables ---
-        let db, auth;
+        let db, auth, functions;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'public-work-forecast-session-v3';
         let currentAppId;
         let unsubscribe; // To detach the real-time listener
@@ -451,14 +452,11 @@
         async function initializeFirebase() {
             try {
                 let firebaseConfig;
-
-                // This logic handles both the special environment (with __firebase_config) and a standard web environment.
                 if (typeof __firebase_config !== 'undefined' && __firebase_config) {
                     firebaseConfig = JSON.parse(__firebase_config);
                 } else {
-                    // Fallback for standard web deployment
                     firebaseConfig = {
-                        apiKey: "",
+                        apiKey: "AIzaSyBxmX7fEISWYs_JGktAZrFjdb8cb_ZcmSY",
                         authDomain: "work-tool-e2943.firebaseapp.com",
                         projectId: "work-tool-e2943",
                         storageBucket: "work-tool-e2943.appspot.com",
@@ -471,20 +469,21 @@
                 if (!firebaseConfig.apiKey) {
                     throw new Error("Firebase config is missing or invalid.");
                 }
-
+                
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
+                functions = getFunctions(app);
                 
-                // This listener will fire once authentication is complete.
                 onAuthStateChanged(auth, user => {
                     if (user) {
                         console.log("Authenticated with UID:", user.uid);
                         connectToTeamData(appId); 
+                    } else {
+                        signInAnonymously(auth).catch(err => console.error("Anonymous sign in failed:", err));
                     }
                 });
-                
-                // Trigger the initial authentication.
+
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -510,7 +509,7 @@
             statusIndicator.classList.remove('bg-gray-400', 'bg-green-500', 'bg-red-500');
             statusIndicator.classList.add('bg-yellow-500', 'animate-pulse');
             
-            const docRef = doc(db, "artifacts", currentAppId, "public/data/shared_state/singleton");
+            const docRef = doc(db, "artifacts", currentAppId, "public/data/appState");
 
             unsubscribe = onSnapshot(docRef, (docSnap) => {
                 connectionStatus.textContent = "동기화";
@@ -1049,7 +1048,7 @@
         // --- Data Persistence (Firestore) ---
         async function saveDataToFirestore() {
             if (!currentAppId || !auth.currentUser) return;
-            const docRef = doc(db, "artifacts", currentAppId, "public/data/shared_state/singleton");
+            const docRef = doc(db, "artifacts", currentAppId, "public", "data", "appState");
             
             const stateToSave = {
                 historicalData,
@@ -1280,32 +1279,16 @@
             - 마크다운을 사용하여 각 항목을 명확하게 구분하고, 팀원들이 바로 이해할 수 있도록 직설적으로 작성해주세요.
             `;
             
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
+            const callGenerateWorkPlan = httpsCallable(functions, 'generateWorkPlan');
             try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userQuery }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`API call failed with status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                const result = await callGenerateWorkPlan({ userQuery, systemPrompt });
+                const text = result.data.text;
 
                 if (text) {
                     aiReportContent.innerHTML = formatAiResponse(text);
                 } else {
                     aiReportContent.textContent = 'AI로부터 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요.';
                 }
-
             } catch (error) {
                 console.error('Error generating AI report:', error);
                 aiReportContent.textContent = `오류가 발생했습니다: ${error.message}`;
@@ -1344,26 +1327,10 @@
             ### 6. 향후 단기 전망
             - 위 모든 분석을 종합하여, 향후 3~5일 동안 주문량이 증가할 것으로 예상되는지, 또는 감소할 것으로 예상되는지 그 이유와 함께 간결하게 전망해주세요.
             `;
-
-            const apiKey = "AIzaSyCVqaGpAA_YW5y8pUiiiXNohS6XqEbyv1A";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
             try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userQuery }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`API call failed with status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                const callGenerateAdvancedAnalysis = httpsCallable(functions, 'generateAdvancedAnalysis');
+                const result = await callGenerateAdvancedAnalysis({ userQuery, systemPrompt });
+                const text = result.data.text;
 
                 if (text) {
                     aiAnalysisContent.innerHTML = formatAiResponse(text);
@@ -1491,6 +1458,4 @@
 
 </body>
 </html>
-
-
 
