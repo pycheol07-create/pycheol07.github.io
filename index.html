@@ -509,7 +509,7 @@
             statusIndicator.classList.remove('bg-gray-400', 'bg-green-500', 'bg-red-500');
             statusIndicator.classList.add('bg-yellow-500', 'animate-pulse');
             
-            const docRef = doc(db, "artifacts", currentAppId, "public/data/appState");
+            const docRef = doc(db, "artifacts", currentAppId, "public/data/appState/singleton");
 
             unsubscribe = onSnapshot(docRef, (docSnap) => {
                 connectionStatus.textContent = "동기화";
