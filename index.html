@@ -509,7 +509,7 @@
             statusIndicator.classList.remove('bg-gray-400', 'bg-green-500', 'bg-red-500');
             statusIndicator.classList.add('bg-yellow-500', 'animate-pulse');
             
-            const docRef = doc(db, "artifacts", currentAppId, "public", "data", "appState");
+            const docRef = doc(db, "artifacts", currentAppId, "public", "data");
 
             unsubscribe = onSnapshot(docRef, (docSnap) => {
                 connectionStatus.textContent = "동기화";
@@ -804,7 +804,8 @@
             setTimeout(() => {
                 if (dataWithDateObjects.length < 7) { showToast('최소 7일 이상의 데이터가 필요합니다.', 'error'); runPredictionBtn.disabled = false; runPredictionBtnSpinner.classList.add('hidden'); runPredictionBtnText.textContent = '예측 실행'; return; }
                 const today = new Date(); const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1); const futureEvents = getFutureEvents(); const todayPrediction = predict(dataWithDateObjects, today, futureEvents.today); const tomorrowPrediction = predict(dataWithDateObjects, tomorrow, futureEvents.tomorrow, todayPrediction, futureEvents.today);
-                predictionLog[today.toISOString().split('T')[0]] = todayPrediction; predictionLog[tomorrow.toISOString().split('T')[0]] = tomorrowPrediction;
+                predictionLog[today.toISOString().split('T')[0]] = todayPrediction;
+                predictionLog[tomorrow.toISOString().split('T')[0]] = tomorrowPrediction;
                 displayPredictionResults(todayPrediction, tomorrowPrediction);
                 displayModelAccuracy();
                 displayEventMultipliers();
@@ -1228,7 +1229,7 @@
         async function generateWorkPlan(dayId, futureEvents) {
             aiReportModal.classList.remove('hidden');
             aiReportContent.innerHTML = '<div class="flex justify-center items-center h-full"><svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-4 text-gray-700">AI가 보고서를 작성하고 있습니다...</span></div>';
-            
+
             const date = new Date();
             if (dayId === 'tomorrow') {
                 date.setDate(date.getDate() + 1);
